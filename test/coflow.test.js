@@ -142,3 +142,20 @@ test("humanEdits is what the agent has not seen, handoff carries the lot", () =>
   assert.match(md, /What the human changed by hand/);
   fs.rmSync(dir, { recursive: true });
 });
+
+test("the folder remembers the verdict, and stops claiming final once edited again", () => {
+  const dir = tmp();
+  const s = new Store(dir);
+  s.save({ graph: parseMermaid(SRC), doc: { blocks: [{ id: "b0", text: "# Plan" }] } });
+  assert.match(s.handoff().md, /\*\*draft\*\* — nobody has signed this off/);
+
+  s.record("approved");
+  assert.match(s.handoff().md, /\*\*approved\*\* by the human at rev 1/);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, "handoff.json"), "utf8")).decision.what, "approved");
+  // A new Store sees it too, so a later session can tell finished from abandoned.
+  assert.equal(new Store(dir).meta.decision.what, "approved");
+
+  s.save({ doc: { blocks: [{ id: "b0", text: "# Plan, actually no" }] } });
+  assert.match(s.handoff().md, /edited 1 more time\(s\) — no longer final/);
+  fs.rmSync(dir, { recursive: true });
+});

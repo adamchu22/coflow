@@ -98,7 +98,7 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
         doc: store.doc.blocks.map((x) => x.text).join("\n\n"),
         mermaid: toMermaid(store.graph),
       };
-      store.handoff();
+      store.record(b.decision);
       setTimeout(() => decide(decision), 100);
       return { ok: true };
     },

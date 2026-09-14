@@ -65,9 +65,12 @@ flowchart TD
 
 Then:
 
-- **`approved`** — build it. Do not re-litigate the design.
-- **`annotated`** — every comment is an instruction, not a suggestion. Act on all of them.
-  Only the human closes a comment, so never mark one resolved yourself.
+- **`approved`** — this is the final document. Build against it and do not re-litigate the
+  design. The folder records the sign-off, so later sessions can tell it apart from a draft.
+- **`annotated`** — every comment is an instruction, not a suggestion. Carry them all out,
+  then **run `coflow` again against the same `--save-dir`** so they can see the revision.
+  That is the loop: annotate → revise → reopen, until they approve. Only the human closes a
+  comment, so never mark one resolved yourself.
 - **`dismissed`** — stop and ask what they want instead.
 
 **`humanOps` is the list of edits they made by hand.** Read it before you touch the chart
@@ -79,8 +82,13 @@ survive you sending a new chart, so send semantics and leave the geometry alone.
 
 `--save-dir` defaults to `./coflow` in the current directory, and it persists after the
 session: `doc.md`, `flow.mermaid`, `comments.json`, `handoff.md`, and a `versions/`
-snapshot per edit. Commit it if the plan belongs with the code; `versions/` is undo
-history and can be ignored. `coflow attach <dir>` prints the lot for a later session.
+snapshot per edit. Commit it if the document belongs with the code; `versions/` is undo
+history and can be ignored.
+
+`coflow attach <dir>` prints the lot for a later session, and its first lines say where
+things stand — `**draft**`, `**approved** by the human at rev N`, or `**approved** at
+rev N, then edited 3 more time(s) — no longer final`. Check it before assuming anything
+is settled.
 
 ## Install
 

@@ -109,7 +109,8 @@ flow.json        { dir, nodes: [{id,type,label,x,y,color,stroke,sw,opacity}], ed
 flow.mermaid     same graph, Mermaid source
 comments.json    [{ id, target, body, status }]
 versions/N.json  state as it was *before* rev N, plus `ops`: what that write did
-handoff.md/json  written when you decide
+handoff.md/json  written when you decide — including the verdict, so the folder
+                 itself knows whether it holds a final document or a draft
 ```
 
 Every write bumps `rev` and snapshots the previous state, so history is revertible from
