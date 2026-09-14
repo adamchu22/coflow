@@ -68,8 +68,10 @@ Comments you marked *I fixed it* move to `resolvedComments`.
 - **Shapes.** rectangle `[]`, rounded `()`, stadium `([])`, circle `(())`, diamond `{}` —
   the same five flowchartai uses, so everything maps onto real Mermaid. Made a box and
   meant a decision? The five shapes sit in the panel; switching keeps the arrows attached.
-- **Resize.** Select a box and drag the corner grip. It grows from its centre, and the
-  label rewraps to fit — wider means more words per line, taller means more lines.
+- **Resize.** Select a box and drag any edge or corner; the side you grab moves and the
+  opposite one stays put. The label rewraps to fit — wider means more words per line,
+  taller means more lines. The blue dots keep the middle of each side, so drawing an
+  arrow still beats resizing there.
 - **Copy.** `⌘C` / `⌘V` duplicates the selected boxes, the arrows between them, and their
   styling, dropped just off the originals and already selected so you can drag them away.
 - **Branch by keyboard.** With a box selected, `⌘`+arrow makes one box that way and draws

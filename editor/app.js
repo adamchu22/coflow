@@ -494,6 +494,20 @@ function renderCanvas() {
     lines.forEach((l, i) => t.append(el("tspan", { x: w / 2, dy: i ? 16 : 0 }, l)));
     g.append(t);
 
+    // Any edge or corner of the selected box resizes it. Added before the ports so the blue
+    // dots still win the middle of each side — drawing an arrow beats resizing there.
+    if (sel.nodes.size === 1 && sel.nodes.has(n.id))
+      for (const [sx, sy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+        const T = 10, cur = sx && sy ? (sx === sy ? "nwse" : "nesw") : sx ? "ew" : "ns";
+        const grip = el("rect", {
+          class: "grip", style: `cursor:${cur}-resize`,
+          x: sx < 0 ? -T / 2 : sx > 0 ? w - T / 2 : T / 2, width: sx ? T : w - T,
+          y: sy < 0 ? -T / 2 : sy > 0 ? h - T / 2 : T / 2, height: sy ? T : h - T,
+        });
+        grip.addEventListener("pointerdown", (ev) => startResize(ev, n, sx, sy));
+        g.append(grip);
+      }
+
     // Two circles per port: a fat invisible one you can actually hit, a small visible dot.
     [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]].forEach(([px, py], i) => {
       const hit = el("circle", { class: "porthit", cx: px, cy: py, r: 15 });
@@ -505,12 +519,6 @@ function renderCanvas() {
       pin.append(el("circle", { r: 9 }), el("text", { y: 3.5 }, String(open.length)));
       pin.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); document.querySelector(`[data-cid="${open[0].id}"]`)?.scrollIntoView({ block: "center" }); });
       g.append(pin);
-    }
-    // Grip on the corner of the one selected box: drag it so a long label fits.
-    if (sel.nodes.size === 1 && sel.nodes.has(n.id)) {
-      const grip = el("path", { class: "grip", d: `M${w - 14} ${h} L${w} ${h} L${w} ${h - 14} Z` });
-      grip.addEventListener("pointerdown", (ev) => startResize(ev, n));
-      g.append(grip);
     }
     g.addEventListener("pointerdown", (ev) => startDrag(ev, n));
     gN.append(g);
@@ -597,15 +605,18 @@ function startDrag(ev, n) {
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerup", up);
 }
 
-// Drag the corner grip. The box grows from its centre so the arrows stay where they point.
-function startResize(ev, n) {
+// Drag an edge or a corner. sx/sy say which one, so the side you did not grab stays put.
+function startResize(ev, n, sx, sy) {
   ev.stopPropagation();
   svg.setPointerCapture(ev.pointerId);
-  const start = toWorld(ev), w0 = nw(n), h0 = nh(n);
+  const start = toWorld(ev), w0 = nw(n), h0 = nh(n), x0 = n.x, y0 = n.y;
   const move = (e) => {
     const p = toWorld(e);
-    n.w = Math.round(Math.max(80, w0 + (p.x - start.x) * 2));
-    n.h = Math.round(Math.max(44, h0 + (p.y - start.y) * 2));
+    const w = Math.max(80, w0 + (p.x - start.x) * sx), h = Math.max(44, h0 + (p.y - start.y) * sy);
+    n.w = Math.round(w); n.h = Math.round(h);
+    // Centre moves half of whatever the size did, which holds the opposite edge still.
+    if (sx) n.x = Math.round(x0 + (sx * (w - w0)) / 2);
+    if (sy) n.y = Math.round(y0 + (sy * (h - h0)) / 2);
     renderCanvas();
   };
   const up = () => {
