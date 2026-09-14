@@ -5,7 +5,7 @@
     {
       "name": "coflow",
       "source": "./plugin",
-      "description": "Hand a plan and a flowchart to a human, block while they redraw it, and get their comments and edits back as JSON."
+      "description": "Write a document and its flowchart with a human: open both in a browser, block while they edit, and get their revisions and comments back as JSON."
     }
   ]
 }

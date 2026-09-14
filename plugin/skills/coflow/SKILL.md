@@ -1,6 +1,6 @@
 ---
 name: coflow
-description: Hand a plan and a flowchart to the human for review in a browser, and block until they approve, annotate, or reject it. Use when the work is a process, a pipeline, a decision tree, an onboarding, a migration, a state machine — anything with branches worth seeing before it is built — or when the user asks to review, draw, or edit a flow or diagram.
+description: Write a document and its flowchart *with* the human — open both in a browser editor, block while they edit, and get their revisions and comments back. Use when the user asks for CoFlow, or asks to draft, review, draw, or edit a document, process, diagram or flow together. Not for ordinary planning: only open it when the human asks to work in it.
 ---
 
 # CoFlow
