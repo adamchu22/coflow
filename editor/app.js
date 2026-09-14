@@ -934,6 +934,53 @@ $("#i-label").onclick = () => $("#t-label").click();
 $("#i-del").onclick = del;
 $("#i-comment").onclick = () => { const b = $("#inspector").getBoundingClientRect(); commentPopover(targetOf(), b.left, b.bottom + 6); };
 
+/* ── Share it with someone who is not in the loop: the doc, the chart, or a picture. ── */
+const download = (name, blob) => {
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: name });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+const slug = () => ($("#title").value || "coflow").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "coflow";
+
+// The canvas as a standalone file: the drawing, cropped to it, with the stylesheet inlined
+// so it looks the same somewhere that has never heard of CoFlow.
+async function chartSvg() {
+  const clone = svg.cloneNode(true);
+  clone.querySelectorAll("#bg,#marquee,#rubber,.grip,.porthit,.port,.handle,.cpin").forEach((x) => x.remove());
+  clone.querySelectorAll(".sel").forEach((x) => x.classList.remove("sel"));
+  clone.querySelector("#world").removeAttribute("transform");
+  const b = $("#world").getBBox(), pad = 28;
+  clone.setAttribute("viewBox", `${b.x - pad} ${b.y - pad} ${b.width + pad * 2} ${b.height + pad * 2}`);
+  clone.setAttribute("width", Math.ceil(b.width + pad * 2));
+  clone.setAttribute("height", Math.ceil(b.height + pad * 2));
+  clone.prepend(el("style", {}, await fetch("./style.css").then((r) => r.text())));
+  return new XMLSerializer().serializeToString(clone);
+}
+
+// Same picture through an <img> onto a 2× canvas, so it is not mush in a chat window.
+async function chartPng(scale = 2) {
+  const img = new Image();
+  img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(await chartSvg());
+  await new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
+  const c = Object.assign(document.createElement("canvas"), { width: img.width * scale, height: img.height * scale });
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((ok) => c.toBlob(ok, "image/png"));
+}
+
+const text = (fmt) => fetch("./api/export?fmt=" + fmt).then((r) => r.text());
+
+$("#t-export").onclick = (ev) =>
+  menu(ev, [
+    ["Doc as Markdown", async () => download(`${slug()}.md`, new Blob([await text("md")], { type: "text/markdown" }))],
+    ["Chart as Mermaid", async () => download(`${slug()}.mmd`, new Blob([await text("mermaid")], { type: "text/plain" }))],
+    [null],
+    ["Chart as SVG", async () => download(`${slug()}.svg`, new Blob([await chartSvg()], { type: "image/svg+xml" }))],
+    ["Chart as PNG", async () => download(`${slug()}.png`, await chartPng())],
+  ]);
+
 function del() {
   if (sel.blockId && !sel.nodes.size) return;
   S.graph.nodes = S.graph.nodes.filter((n) => !sel.nodes.has(n.id));

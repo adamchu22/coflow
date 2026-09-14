@@ -84,6 +84,9 @@ Comments you marked *I fixed it* move to `resolvedComments`.
   opacity, label, comment, delete.
 - **Right-click** any box, arrow, paragraph or empty canvas for a menu — including a
   comment box that opens where you clicked, so you never leave what you're talking about.
+- **Share it.** `⇩` downloads the doc as Markdown, the chart as Mermaid, or the chart as a
+  picture — SVG, or a 2× PNG to paste into a chat. The picture is cropped to the drawing
+  and carries its own styling, so it looks right somewhere that's never heard of CoFlow.
 
 Position, size, styling, and which side an arrow attaches to are yours: Mermaid cannot
 express them, so they live in `flow.json` and survive the agent handing back a new chart.
