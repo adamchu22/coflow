@@ -11,7 +11,9 @@ everything you produced goes back to the agent on stdout.
 No API key. No database. No background daemon. No dependencies — not one. The agent that
 launched it is the AI.
 
-![The CoFlow editor: markdown on the left, the flowchart in the middle, comments on the right](docs/hero.png)
+![The loop: drag a box, draw the next step, restyle a decision, comment on it, send it back](docs/loop.gif)
+
+*One pass through the loop — moving a box, drawing a new step, restyling a decision, leaving a comment, sending it all back.*
 
 ## Quick start
 
