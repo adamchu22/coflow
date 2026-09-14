@@ -494,19 +494,15 @@ function renderCanvas() {
     lines.forEach((l, i) => t.append(el("tspan", { x: w / 2, dy: i ? 16 : 0 }, l)));
     g.append(t);
 
-    // Any edge or corner of any box resizes it — hover is enough, no need to select first.
-    // Added before the ports so the blue dots still win the middle of each side: drawing
-    // an arrow beats resizing there.
-    for (const [sx, sy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
-      const T = 10, cur = sx && sy ? (sx === sy ? "nwse" : "nesw") : sx ? "ew" : "ns";
-      const grip = el("rect", {
-        class: "grip", style: `cursor:${cur}-resize`,
-        x: sx < 0 ? -T / 2 : sx > 0 ? w - T / 2 : T / 2, width: sx ? T : w - T,
-        y: sy < 0 ? -T / 2 : sy > 0 ? h - T / 2 : T / 2, height: sy ? T : h - T,
-      });
-      grip.addEventListener("pointerdown", (ev) => startResize(ev, n, sx, sy));
-      g.append(grip);
-    }
+    // A fat transparent stroke along the shape's own outline: hovering the edge of anything
+    // hits it, a diamond's diagonals included. Which way you are resizing comes from where
+    // you grabbed it. Added before the ports so the blue dots still win the middle of each
+    // side — drawing an arrow beats resizing there.
+    const grip = shapeEl({ ...n, color: undefined, stroke: undefined, sw: undefined });
+    grip.setAttribute("class", "grip");
+    grip.addEventListener("pointermove", (ev) => (grip.style.cursor = resizeCursor(resizeDir(n, toWorld(ev)))));
+    grip.addEventListener("pointerdown", (ev) => startResize(ev, n, ...resizeDir(n, toWorld(ev))));
+    g.append(grip);
 
     // Two circles per port: a fat invisible one you can actually hit, a small visible dot.
     [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]].forEach(([px, py], i) => {
@@ -604,6 +600,15 @@ function startDrag(ev, n) {
   };
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerup", up);
 }
+
+// Where on the outline you grabbed, as which sides move: a corner moves both, a flat side one.
+const resizeDir = (n, p) => {
+  const ax = (p.x - n.x) / (nw(n) / 2), ay = (p.y - n.y) / (nh(n) / 2);
+  let sx = Math.abs(ax) > 0.45 ? Math.sign(ax) : 0, sy = Math.abs(ay) > 0.45 ? Math.sign(ay) : 0;
+  if (!sx && !sy) (Math.abs(ax) > Math.abs(ay) ? (sx = Math.sign(ax) || 1) : (sy = Math.sign(ay) || 1));
+  return [sx, sy];
+};
+const resizeCursor = ([sx, sy]) => (sx && sy ? (sx === sy ? "nwse" : "nesw") : sx ? "ew" : "ns") + "-resize";
 
 // Drag an edge or a corner. sx/sy say which one, so the side you did not grab stays put.
 function startResize(ev, n, sx, sy) {
