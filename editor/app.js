@@ -494,19 +494,19 @@ function renderCanvas() {
     lines.forEach((l, i) => t.append(el("tspan", { x: w / 2, dy: i ? 16 : 0 }, l)));
     g.append(t);
 
-    // Any edge or corner of the selected box resizes it. Added before the ports so the blue
-    // dots still win the middle of each side — drawing an arrow beats resizing there.
-    if (sel.nodes.size === 1 && sel.nodes.has(n.id))
-      for (const [sx, sy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
-        const T = 10, cur = sx && sy ? (sx === sy ? "nwse" : "nesw") : sx ? "ew" : "ns";
-        const grip = el("rect", {
-          class: "grip", style: `cursor:${cur}-resize`,
-          x: sx < 0 ? -T / 2 : sx > 0 ? w - T / 2 : T / 2, width: sx ? T : w - T,
-          y: sy < 0 ? -T / 2 : sy > 0 ? h - T / 2 : T / 2, height: sy ? T : h - T,
-        });
-        grip.addEventListener("pointerdown", (ev) => startResize(ev, n, sx, sy));
-        g.append(grip);
-      }
+    // Any edge or corner of any box resizes it — hover is enough, no need to select first.
+    // Added before the ports so the blue dots still win the middle of each side: drawing
+    // an arrow beats resizing there.
+    for (const [sx, sy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) {
+      const T = 10, cur = sx && sy ? (sx === sy ? "nwse" : "nesw") : sx ? "ew" : "ns";
+      const grip = el("rect", {
+        class: "grip", style: `cursor:${cur}-resize`,
+        x: sx < 0 ? -T / 2 : sx > 0 ? w - T / 2 : T / 2, width: sx ? T : w - T,
+        y: sy < 0 ? -T / 2 : sy > 0 ? h - T / 2 : T / 2, height: sy ? T : h - T,
+      });
+      grip.addEventListener("pointerdown", (ev) => startResize(ev, n, sx, sy));
+      g.append(grip);
+    }
 
     // Two circles per port: a fat invisible one you can actually hit, a small visible dot.
     [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]].forEach(([px, py], i) => {
@@ -609,6 +609,7 @@ function startDrag(ev, n) {
 function startResize(ev, n, sx, sy) {
   ev.stopPropagation();
   svg.setPointerCapture(ev.pointerId);
+  if (!sel.nodes.has(n.id)) pick(ev, n.id);
   const start = toWorld(ev), w0 = nw(n), h0 = nh(n), x0 = n.x, y0 = n.y;
   const move = (e) => {
     const p = toWorld(e);
