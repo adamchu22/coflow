@@ -81,7 +81,9 @@ Comments you marked *I fixed it* move to `resolvedComments`.
 - **Select.** Drag the empty canvas to rubber-band; space / alt / middle-drag pans instead.
   `Del` deletes the selection, `⌘Z` steps back a revision.
 - **Style.** Selecting anything opens a panel beside it: fill, stroke, stroke width,
-  opacity, label, comment, delete.
+  opacity, dashed, label, comment, delete. **Dashed** means two things: on an arrow it's
+  Mermaid's `-.->` and goes back to the agent as semantics; on a box Mermaid can't say it,
+  so it's yours and survives a re-seed.
 - **Right-click** any box, arrow, paragraph or empty canvas for a menu — including a
   comment box that opens where you clicked, so you never leave what you're talking about.
 - **Share it.** `⇩` downloads the doc as Markdown, the chart as Mermaid, or the chart as a
@@ -116,7 +118,7 @@ not a proposal — nothing closes it but you clicking *I fixed it*.
 coflow.json      rev, title, updatedAt
 doc.json         { blocks: [{ id, text }] }
 doc.md           same doc, flat markdown
-flow.json        { dir, nodes: [{id,type,label,x,y,color,stroke,sw,opacity}], edges: […] }
+flow.json        { dir, nodes: [{id,type,label,x,y,color,stroke,sw,opacity,dash}], edges: […] }
 flow.mermaid     same graph, Mermaid source
 comments.json    [{ id, target, body, status }]
 versions/N.json  state as it was *before* rev N, plus `ops`: what that write did

@@ -454,6 +454,7 @@ function shapeEl(n) {
     n.color && `fill:${n.color}`,
     n.stroke ? `stroke:${n.stroke}` : n.color && `stroke:color-mix(in srgb,${n.color} 60%,#111)`,
     n.sw && `stroke-width:${n.sw}`,
+    n.dash && "stroke-dasharray:6 4",
   ].filter(Boolean).join(";") || undefined;
   if (type === "diamond") return el("path", { class: cls, style, d: `M${w / 2} 0 L${w} ${h / 2} L${w / 2} ${h} L0 ${h / 2} Z` });
   if (type === "circle") return el("ellipse", { class: cls, style, cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2 });
@@ -915,6 +916,7 @@ function syncInspector() {
   $("#i-stroke").value = first.stroke || (sel.nodes.size ? "#3f3f46" : "#4b5563");
   $("#i-sw").value = first.sw || (sel.nodes.size ? 1.5 : 2);
   $("#i-op").value = first.opacity ?? 1;
+  $("#i-dash").checked = !!first.dash || first.style === "dashed";
 }
 
 // Shape is the agent's to write and yours to correct — it is semantics, so Mermaid carries it.
@@ -929,7 +931,15 @@ $("#i-fill").oninput = (e) => restyle({ color: e.target.value });
 $("#i-stroke").oninput = (e) => restyle({ stroke: e.target.value });
 $("#i-sw").oninput = (e) => restyle({ sw: Number(e.target.value) });
 $("#i-op").oninput = (e) => restyle({ opacity: Number(e.target.value) });
-$("#i-clear").onclick = () => restyle({ color: undefined, stroke: undefined, sw: undefined, opacity: undefined }, "cleared styling");
+// Dashed means two different things. On an arrow it is semantics — Mermaid's `-.->` — so it
+// goes in `style` and rides back to the agent. On a box Mermaid cannot say it at all, so it is
+// yours, lives in flow.json, and survives a re-seed like the colours do.
+$("#i-dash").onchange = (e) => {
+  const on = e.target.checked;
+  for (const o of selected()) "from" in o ? (o.style = on ? "dashed" : "solid") : (o.dash = on || undefined);
+  renderCanvas(); queueSave(on ? "made it dashed" : "made it solid");
+};
+$("#i-clear").onclick = () => restyle({ color: undefined, stroke: undefined, sw: undefined, opacity: undefined, dash: undefined }, "cleared styling");
 $("#i-label").onclick = () => $("#t-label").click();
 $("#i-del").onclick = del;
 $("#i-comment").onclick = () => { const b = $("#inspector").getBoundingClientRect(); commentPopover(targetOf(), b.left, b.bottom + 6); };
