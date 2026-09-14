@@ -72,6 +72,7 @@ mark{background:#fef08a;border-radius:3px;padding:0 1px}
 .block{padding:3px 6px;border-radius:6px;outline:none;white-space:pre-wrap;word-break:break-word;position:relative;border-left:2px solid transparent}
 .block:hover{background:#faf9f6}
 .block.sel{border-left-color:var(--accent);background:#f4f7ff}
+.block.all{background:Highlight;color:HighlightText}
 .block.h1{font-size:21px;font-weight:650;margin-top:10px}
 .block.h2{font-size:16px;font-weight:620;margin-top:8px}
 .block.li{padding-left:18px}

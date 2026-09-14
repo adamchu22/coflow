@@ -162,7 +162,33 @@ $("#doc").addEventListener("focusin", (e) => {
 });
 
 // Enter splits into a new block; Backspace at the very start merges back.
+// Each paragraph is its own contenteditable, so the browser's ⌘A stops at the one you are
+// in. Select every block instead, and let the next keystroke clear the doc the way it would
+// clear a selection anywhere else.
+let allDoc = false;
+const selectWholeDoc = (on) => {
+  allDoc = on;
+  document.querySelectorAll("#doc .block").forEach((d) => d.classList.toggle("all", on));
+};
+const replaceDoc = (text) => {
+  const id = "b" + Math.random().toString(36).slice(2, 8);
+  S.doc.blocks = [{ id, text }];
+  sel.blockId = null;
+  selectWholeDoc(false);
+  renderDoc(); queueSave("cleared the doc");
+  const d = document.querySelector(`[data-id="${id}"]`);
+  if (d) { d.focus(); setCaret(d, text.length); }
+};
+addEventListener("pointerdown", () => selectWholeDoc(false), true);
+
 $("#doc").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "a") { e.preventDefault(); return selectWholeDoc(true); }
+  if (allDoc) {
+    if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); return replaceDoc(""); }
+    // Typing over a selection replaces it, here as anywhere else.
+    if (e.key.length === 1 && !e.metaKey && !e.ctrlKey) { e.preventDefault(); return replaceDoc(e.key); }
+    if (e.key !== "Escape") selectWholeDoc(false); else { e.preventDefault(); return selectWholeDoc(false); }
+  }
   const d = e.target.closest(".block");
   if (!d) return;
   const i = S.doc.blocks.findIndex((b) => b.id === d.dataset.id);
