@@ -1,0 +1,11 @@
+{
+  "name": "coflow",
+  "owner": { "name": "Rugby Waldorf LLC" },
+  "plugins": [
+    {
+      "name": "coflow",
+      "source": "./plugin",
+      "description": "Hand a plan and a flowchart to a human, block while they redraw it, and get their comments and edits back as JSON."
+    }
+  ]
+}

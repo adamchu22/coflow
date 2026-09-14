@@ -1,0 +1,18 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "coflow",
+  "version": "0.1.0",
+  "description": "Hand a plan and a flowchart to a human, block while they redraw it, and get their comments and edits back as JSON.",
+  "author": "Rugby Waldorf LLC",
+  "repository": "https://github.com/RugbyWaldorf/coflow",
+  "license": "MIT",
+  "keywords": ["flowchart", "diagram", "planning", "review", "human-in-the-loop"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "CoFlow",
+        "category": "Productivity"
+      }
+    }
+  }
+}

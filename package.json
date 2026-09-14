@@ -20,8 +20,25 @@
     "lib",
     "server",
     "editor",
+    "plugin",
     "README.md",
     "LICENSE",
     "CREDITS.md"
-  ]
+  ],
+  "keywords": [
+    "pi-package",
+    "flowchart",
+    "diagram",
+    "planning",
+    "review",
+    "human-in-the-loop"
+  ],
+  "pi": {
+    "skills": [
+      "./plugin/skills"
+    ],
+    "prompts": [
+      "./plugin/commands"
+    ]
+  }
 }

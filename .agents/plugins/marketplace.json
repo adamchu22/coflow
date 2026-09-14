@@ -1,0 +1,12 @@
+{
+  "name": "coflow",
+  "interface": { "displayName": "CoFlow" },
+  "plugins": [
+    {
+      "name": "coflow",
+      "source": { "source": "local", "path": "./plugin" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

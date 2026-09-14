@@ -1,0 +1,11 @@
+{
+  "name": "coflow",
+  "displayName": "CoFlow",
+  "version": "0.1.0",
+  "description": "Hand a plan and a flowchart to a human, block while they redraw it, and get their comments and edits back as JSON.",
+  "author": { "name": "Rugby Waldorf LLC" },
+  "repository": "https://github.com/RugbyWaldorf/coflow",
+  "license": "MIT",
+  "keywords": ["flowchart", "diagram", "planning", "review", "human-in-the-loop"],
+  "commands": ["./commands/coflow.md"]
+}

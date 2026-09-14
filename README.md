@@ -139,3 +139,34 @@ MIT — © 2026 Rugby Waldorf LLC. See [LICENSE](LICENSE).
 
 No third-party code ships in this repo (there are no dependencies at all), but the ideas
 came from somewhere: [CREDITS.md](CREDITS.md) names them.
+
+## Plugins
+
+The same skill drives all three hosts — `plugin/skills/coflow/SKILL.md` is the only real
+artifact; each manifest just points at it.
+
+```
+plugin/
+├── skills/coflow/SKILL.md   when to run it, the Mermaid profile, how to read the result
+├── commands/coflow.md       the /coflow slash command
+├── .claude-plugin/plugin.json   Claude Code manifest
+└── plugin.json                  Codex / agent-plugins.org manifest
+.claude-plugin/marketplace.json  Claude Code marketplace
+.agents/plugins/marketplace.json Codex marketplace
+package.json → "pi": {…}         Pi package manifest
+```
+
+```bash
+# Claude Code
+/plugin marketplace add RugbyWaldorf/coflow
+/plugin install coflow@coflow
+
+# Codex
+codex plugin marketplace add RugbyWaldorf/coflow
+
+# Pi
+pi install RugbyWaldorf/coflow
+```
+
+All three expect `coflow` on PATH — `npm i -g coflow`, or `npm link` from a clone until
+it is published.
