@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CoFlow</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header>
+  <span class="brand">CoFlow</span>
+  <input id="title" class="title" spellcheck="false">
+  <div class="spacer"></div>
+  <span id="pending" class="badge"></span>
+  <button id="reject" title="Close without approving">Reject</button>
+  <button id="annotate">Send feedback</button>
+  <button id="approve" class="primary">Approve</button>
+</header>
+
+<main>
+  <!-- DOC -->
+  <section id="docpane">
+    <div class="panehead">Doc <span id="docmeta" class="muted path"></span>
+      <span class="spacer"></span>
+      <button id="t-expand" class="mini" aria-label="Expand the doc to the whole window">⤢</button>
+    </div>
+    <div id="doc"></div>
+    <!-- Highlight words and this appears: format without knowing markdown, or comment
+         on exactly what you highlighted. -->
+    <div id="selbar" hidden>
+      <button data-wrap="**" aria-label="Bold"><b>B</b></button>
+      <button data-wrap="*" aria-label="Italic"><i>I</i></button>
+      <button data-wrap="`" aria-label="Code">&lt;&gt;</button>
+      <button data-wrap="~~" aria-label="Strikethrough"><s>S</s></button>
+      <span class="sep"></span>
+      <button data-prefix="# " aria-label="Heading">H1</button>
+      <button data-prefix="## " aria-label="Subheading">H2</button>
+      <button data-prefix="- " aria-label="Bullet list">•</button>
+      <button data-prefix="&gt; " aria-label="Quote">❝</button>
+      <span class="sep"></span>
+      <button id="sel-link" aria-label="Link">🔗</button>
+      <button id="sel-comment" aria-label="Comment on this highlight">💬</button>
+    </div>
+  </section>
+  <div class="grip" data-grip="doc"></div>
+
+  <!-- CANVAS -->
+  <section id="canvaspane">
+    <div id="tools">
+      <button data-add="rectangle" aria-label="Step">▭</button>
+      <button data-add="rounded" aria-label="Rounded step">▢</button>
+      <button data-add="diamond" aria-label="Decision">◇</button>
+      <button data-add="stadium" aria-label="Start / End">⬭</button>
+      <button data-add="circle" aria-label="Terminator">◯</button>
+      <span class="sep"></span>
+      <button id="t-label" aria-label="Rename box / label arrow">Label</button>
+      <button id="t-comment" aria-label="Comment on selection (or right-click)">💬</button>
+      <button id="t-del" aria-label="Delete selection (Del)">🗑</button>
+      <span class="sep"></span>
+      <button id="t-layout" aria-label="Auto-layout">⤢</button>
+      <button id="t-fit" aria-label="Fit to view">◎</button>
+      <span id="zoomlabel" class="muted"></span>
+    </div>
+    <svg id="canvas">
+      <defs>
+        <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" fill="#d8d8d4"/>
+        </pattern>
+        <!-- userSpaceOnUse: the head keeps its size whatever the line weight is. -->
+        <marker id="arrow" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1.5 L11,6 L1,10.5 z" fill="#4b5563"/>
+        </marker>
+        <!-- context-stroke: one marker that takes whatever colour the line is. -->
+        <marker id="arrow-ctx" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1.5 L11,6 L1,10.5 z" fill="context-stroke"/>
+        </marker>
+        <marker id="arrow-sel" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1.5 L11,6 L1,10.5 z" fill="#2563eb"/>
+        </marker>
+      </defs>
+      <rect id="bg" x="-100000" y="-100000" width="200000" height="200000" fill="url(#dots)"/>
+      <g id="world">
+        <g id="edges"></g>
+        <g id="nodes"></g>
+        <g id="handles"></g>
+        <rect id="marquee" width="0" height="0"></rect>
+        <path id="rubber" marker-end="url(#arrow-sel)"></path>
+      </g>
+    </svg>
+    <div id="hint" class="hint">Blue dot or ⌘+arrow for the next box — ⌘+arrow again splits the branch · right-click anything to comment · drag empty canvas to select · ⌘Z undo</div>
+    <div id="lint" class="lint"></div>
+    <div id="toast" class="toast" hidden></div>
+  </section>
+  <div class="grip" data-grip="side"></div>
+
+  <!-- COMMENTS -->
+  <aside id="side">
+    <div class="panehead">
+      Feedback
+      <span class="spacer"></span>
+      <span id="cmeta" class="muted"></span>
+    </div>
+    <div id="composer">
+      <div id="target" class="target muted">Select a node, edge, or paragraph…</div>
+      <textarea id="cbody" rows="2" placeholder="What should the agent change here?"></textarea>
+      <button id="cadd" class="primary wide">Add comment</button>
+    </div>
+    <div id="comments"></div>
+    <div class="panehead">History</div>
+    <div id="versions"></div>
+  </aside>
+</main>
+
+<!-- Right-click anything, say something about it, style it — without leaving the canvas. -->
+<div id="ctxmenu" hidden></div>
+
+<div id="cpop" hidden>
+  <div class="where muted"></div>
+  <textarea rows="3" placeholder="What should change here? ⌘⏎ to post"></textarea>
+  <div class="row"><span class="spacer"></span><button class="mini" data-close>Cancel</button><button class="mini primary" data-post>Comment</button></div>
+</div>
+
+<div id="inspector" hidden>
+  <div class="row">
+    <button class="mini" id="i-label">Label</button>
+    <span class="spacer"></span>
+    <button class="mini" id="i-comment" aria-label="Comment on this">💬</button>
+    <button class="mini" id="i-del" aria-label="Delete this">🗑</button>
+  </div>
+  <label class="frow" data-nodes-only>Fill <input type="color" id="i-fill" value="#ffffff"></label>
+  <label class="frow">Stroke <input type="color" id="i-stroke" value="#3f3f46"></label>
+  <label class="frow">Width <input type="range" id="i-sw" min="1" max="8" step="0.5"></label>
+  <label class="frow">Opacity <input type="range" id="i-op" min="0.15" max="1" step="0.05"></label>
+  <button class="mini" id="i-clear">Clear styling</button>
+</div>
+
+<dialog id="fb">
+  <h3>Send feedback to the agent</h3>
+  <p id="fbsum" class="muted"></p>
+  <textarea id="fbtext" rows="5" placeholder="Anything to add beyond the comments you left…"></textarea>
+  <div class="row">
+    <span class="spacer"></span>
+    <button id="fbcancel">Cancel</button>
+    <button id="fbsend" class="primary">Send to agent</button>
+  </div>
+</dialog>
+
+<script src="./app.js" type="module"></script>
+</body>
+</html>

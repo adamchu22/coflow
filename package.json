@@ -1,0 +1,27 @@
+{
+  "name": "coflow",
+  "version": "0.1.0",
+  "description": "Plannotator-style review loop for docs + flowcharts. Localhost-first.",
+  "type": "module",
+  "bin": {
+    "coflow": "./bin/coflow.js"
+  },
+  "scripts": {
+    "start": "node bin/coflow.js --save-dir ./coflow",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "author": "Rugby Waldorf LLC",
+  "files": [
+    "bin",
+    "lib",
+    "server",
+    "editor",
+    "README.md",
+    "LICENSE",
+    "CREDITS.md"
+  ]
+}

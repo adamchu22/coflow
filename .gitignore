@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+
+# the demo project a session writes into
+coflow/
+
+# browser-automation scratch
+.playwright-mcp/

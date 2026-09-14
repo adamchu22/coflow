@@ -1,0 +1,158 @@
+:root{
+  --bg:#f7f7f5; --panel:#fff; --line:#e4e4e0; --ink:#1c1c1a; --muted:#8a8a84;
+  --accent:#2563eb; --green:#16a34a; --red:#dc2626; --amber:#d97706;
+  --doc-w:340px; --side-w:320px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--ink);background:var(--bg);overflow:hidden}
+button{font:inherit;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:5px 10px;cursor:pointer;color:var(--ink)}
+button:hover{background:#f0f0ec}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{filter:brightness(1.08)}
+button.mini{padding:2px 7px;font-size:12px}
+button.wide{width:100%}
+input,textarea{font:inherit;border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:var(--panel);color:var(--ink);width:100%}
+input:focus,textarea:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:-1px}
+.muted{color:var(--muted);font-weight:400}
+.path{text-transform:none;letter-spacing:0;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl}
+.spacer{flex:1}
+
+header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);height:50px}
+.brand{font-weight:650;letter-spacing:-.01em}
+.title{width:150px;border-color:transparent;background:transparent;font-weight:550}
+.title:hover{border-color:var(--line)}
+.badge:not(:empty){font-size:11px;color:#92400e;background:#fef3c7;border-radius:20px;padding:3px 10px;white-space:nowrap}
+.done{padding:70px 20px;text-align:center}
+dialog{border:1px solid var(--line);border-radius:12px;padding:18px 20px;width:min(440px,90vw);box-shadow:0 18px 50px #00000026}
+dialog::backdrop{background:#0006}
+dialog h3{margin:0 0 6px;font-size:16px}
+dialog p{margin:0 0 10px;font-size:12.5px}
+dialog .row{display:flex;gap:8px;margin-top:12px}
+
+main{display:grid;grid-template-columns:var(--doc-w) 5px 1fr 5px var(--side-w);height:calc(100vh - 50px)}
+.grip{cursor:col-resize;background:var(--line)}
+.grip:hover{background:var(--accent)}
+section,aside{min-width:0;display:flex;flex-direction:column;background:var(--panel);overflow:hidden}
+#canvaspane,#docpane{position:relative}
+#canvaspane{background:var(--bg)}
+main.docfull{grid-template-columns:1fr 0 0 5px var(--side-w)}
+main.docfull #canvaspane,main.docfull .grip[data-grip=doc]{display:none}
+#selbar{position:absolute;z-index:8;display:flex;gap:2px;align-items:center;background:var(--panel);
+  border:1px solid var(--line);border-radius:8px;padding:3px;box-shadow:0 4px 14px #0002}
+#selbar button{padding:2px 7px;font-size:12px;line-height:1.3}
+#selbar .sep{width:1px;height:16px;background:var(--line)}
+#selbar[hidden]{display:none}
+mark{background:#fef08a;border-radius:3px;padding:0 1px}
+
+/* A glyph is not a name: aria-label is the tooltip and the accessible name in one. */
+#tools button,#selbar button{position:relative}
+#tools button[aria-label]:hover::after,#selbar button[aria-label]:hover::after{
+  content:attr(aria-label);position:absolute;left:50%;transform:translateX(-50%);top:calc(100% + 7px);
+  background:#18181b;color:#fff;font:11px/1.4 system-ui;white-space:nowrap;padding:3px 7px;border-radius:5px;z-index:30;pointer-events:none}
+
+#ctxmenu,#cpop,#inspector{position:fixed;z-index:40;background:var(--panel);border:1px solid var(--line);
+  border-radius:9px;box-shadow:0 8px 26px #0003;padding:4px}
+#ctxmenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:5px 12px;font-size:13px;border-radius:6px;cursor:pointer}
+#ctxmenu button:hover{background:var(--bg)}
+#ctxmenu .sep{display:block;height:1px;margin:4px 6px;background:var(--line)}
+#cpop{width:260px;padding:8px}
+#cpop textarea{width:100%;font:13px/1.45 system-ui;resize:vertical;margin:5px 0}
+#cpop .where{font-size:11px;margin-bottom:2px}
+#inspector{width:186px;padding:8px}
+#inspector .frow{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin:5px 0;text-transform:uppercase;letter-spacing:.04em}
+#inspector .frow input{margin-left:auto}
+#inspector input[type=range]{width:96px}
+#inspector input[type=color]{width:34px;height:22px;padding:0;border:1px solid var(--line);border-radius:5px;background:none}
+#inspector #i-clear{width:100%;margin-top:4px}
+.panehead{display:flex;align-items:center;gap:6px;padding:7px 12px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--line)}
+
+/* ---- doc ---- */
+#doc{flex:1;overflow:auto;padding:14px 16px 40vh}
+.block{padding:3px 6px;border-radius:6px;outline:none;white-space:pre-wrap;word-break:break-word;position:relative;border-left:2px solid transparent}
+.block:hover{background:#faf9f6}
+.block.sel{border-left-color:var(--accent);background:#f4f7ff}
+.block.h1{font-size:21px;font-weight:650;margin-top:10px}
+.block.h2{font-size:16px;font-weight:620;margin-top:8px}
+.block.li{padding-left:18px}
+.block.commented{background:#fffbeb}
+.block.h3{font-size:14.5px;font-weight:620}
+.block.quote{border-left:3px solid var(--line);color:var(--muted);font-style:italic}
+.block.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;background:#f4f4f0;border-radius:6px}
+/* Markdown markers stay in the text — that keeps the caret honest — just dimmed. */
+.mk{color:var(--muted);opacity:.45;font-weight:400}
+.block code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.92em;background:#f0f0ec;border-radius:4px;padding:0 2px}
+.block a{color:var(--accent);text-decoration:underline}
+.block[data-pin]::after{content:attr(data-pin);position:absolute;right:2px;top:5px;font-size:10px;background:var(--amber);color:#fff;border-radius:9px;padding:0 5px;line-height:1.5}
+
+/* ---- canvas ---- */
+#canvas{flex:1;width:100%;display:block;cursor:default;touch-action:none;user-select:none}
+#canvas.panning{cursor:grabbing}
+.n-box{fill:var(--panel);stroke:#3f3f46;stroke-width:1.5}
+.n-box.diamond{fill:#fff7ed;stroke:#c2410c}
+.n-box.stadium{fill:#eff6ff;stroke:#1d4ed8}
+.n-box.circle{fill:#f5f3ff;stroke:#6d28d9}
+.n-box.rounded{fill:#f0fdfa;stroke:#0f766e}
+.node.sel .n-box{stroke:var(--accent);stroke-width:2.5}
+.node.added .n-box{stroke:var(--green);stroke-width:3}
+.node text{font:13px/1.3 -apple-system,system-ui,sans-serif;fill:var(--ink);pointer-events:none;text-anchor:middle}
+.node{cursor:move}
+/* A box ⌘+arrow just laid down: real, but not named yet. */
+.node.tmp .n-box{stroke-dasharray:6 4;stroke:var(--accent)}
+.node.tmp text{fill:var(--muted)}
+.node.drop .n-box{stroke:var(--accent);stroke-width:3;fill:#eff6ff}
+/* Ports sit at 30% so you can see there is somewhere to grab, full on hover. */
+.port{fill:var(--accent);opacity:.3;pointer-events:none;transition:opacity .12s}
+.porthit{fill:transparent;cursor:crosshair}
+.node:hover .port,.node.sel .port{opacity:1}
+.node:hover .porthit:hover + .port{r:8}
+.edge path{fill:none;stroke:#4b5563;stroke-width:2;marker-end:url(#arrow)}
+.edge:hover path{stroke:#111827}
+.edge.dashed path{stroke-dasharray:6 4}
+.edge .hit{stroke:transparent;stroke-width:20;fill:none;cursor:pointer;marker-end:none}
+.edge.sel path{stroke:var(--accent);stroke-width:2.6;marker-end:url(#arrow-sel)}
+.edge.added path{stroke:var(--green)}
+.edge text{font:11px system-ui;fill:var(--muted);text-anchor:middle;paint-order:stroke;stroke:var(--bg);stroke-width:4px}
+.cpin{cursor:pointer}
+.cpin circle{fill:var(--amber)}
+.cpin text{font:10px system-ui;fill:#fff;text-anchor:middle}
+#marquee{fill:color-mix(in srgb,var(--accent) 12%,transparent);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
+.handle{fill:#fff;stroke:var(--accent);stroke-width:2.5;cursor:crosshair}
+#rubber{fill:none;stroke:var(--accent);stroke-width:1.6;stroke-dasharray:5 4;pointer-events:none}
+
+#tools{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:4px;align-items:center;
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 2px 10px #0000000f}
+#tools button{padding:4px 9px;font-size:15px;line-height:1.2}
+#tools .sep{width:1px;height:20px;background:var(--line)}
+#tools input[type=color]{width:30px;height:27px;padding:0 2px;cursor:pointer}
+#zoomlabel{font-size:11px;padding:0 4px;min-width:38px;text-align:right}
+.hint{position:absolute;left:50%;transform:translateX(-50%);bottom:14px;font-size:12px;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 14px;transition:opacity .6s;pointer-events:none}
+.hint.fade{opacity:0}
+.lint{position:absolute;left:12px;bottom:52px;max-width:45%;font-size:12px;color:var(--amber)}
+.lint div{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:3px 8px;margin-top:4px}
+.toast{position:absolute;right:12px;bottom:12px;max-width:50%;background:#111;color:#fff;font-size:12.5px;
+  border-radius:8px;padding:8px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 4px 14px #0003}
+.toast button{background:#333;border-color:#555;color:#fff;padding:2px 8px;font-size:12px}
+.toast.err{background:#7f1d1d}
+.toast[hidden]{display:none}
+
+/* ---- side ---- */
+#composer{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.target{font-size:12px;border:1px dashed var(--line);border-radius:6px;padding:4px 8px}
+.target.on{border-style:solid;border-color:var(--accent);color:var(--accent)}
+#comments,#versions{overflow:auto;padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+#comments{flex:1}
+#versions{max-height:26vh;gap:2px;font-size:12px}
+.vrow{display:flex;gap:6px;align-items:center;color:var(--muted)}
+.vrow b{color:var(--ink);font-weight:550}
+.c{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;background:var(--panel)}
+.c.open{border-left:3px solid var(--amber)}
+.c.resolved{border-left:3px solid var(--green);opacity:.7}
+.c .top{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.c .where{font-size:11px;color:var(--accent);cursor:pointer;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:10px;text-transform:uppercase;letter-spacing:.04em;border-radius:20px;padding:1px 7px;background:#f0f0ec;color:var(--muted)}
+.pill.open{background:#fef3c7;color:#92400e}
+.pill.resolved{background:#dcfce7;color:#166534}
+.c .acts{display:flex;gap:5px;margin-top:6px}
+.empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px 8px}
