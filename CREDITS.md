@@ -7,7 +7,7 @@ nothing here to attribute a copyright to but Rugby Waldorf LLC.
 What it *does* owe is ideas. These projects were read and learned from; none of their
 source was copied into this repository.
 
-### [Plannotator](https://github.com/jerpint/plannotator)
+### [Plannotator](https://github.com/backnotprop/plannotator) — Apache-2.0 OR MIT, © 2025-2026 backnotprop
 
 The whole review loop. The agent starts a localhost session, the browser opens, the
 process blocks, and the human's verdict comes back on stdout as JSON — no API key, no
