@@ -542,12 +542,17 @@ function renderCanvas() {
 // symmetric: the top and bottom siblings mirror each other instead of one bowing away.
 // A genuine back edge — a retry climbing the chart — still bows aside to clear the chain.
 const NORMAL = [[0, -1], [1, 0], [0, 1], [-1, 0]];
-const facing = (dx, dy) => (Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0);
+// Which side an arrow should leave from is not the raw angle between two centres. Boxes are
+// far wider than they are tall, so a step sitting below and a bit to the left is still
+// *below* — measure the angle against the boxes' own size and it leaves the bottom instead
+// of squeezing out of a side and pointing back across the chart.
+const facing = (dx, dy, hx, hy) => (Math.abs(dx) / hx > Math.abs(dy) / hy ? (dx > 0 ? 1 : 3) : dy > 0 ? 2 : 0);
 
 function edgePath(a, b, e = {}) {
   const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
-  const fp = e.fromPort ?? facing(dx, dy);
-  const tp = e.toPort ?? facing(-dx, -dy);
+  const hx = (nw(a) + nw(b)) / 2, hy = (nh(a) + nh(b)) / 2;
+  const fp = e.fromPort ?? facing(dx, dy, hx, hy);
+  const tp = e.toPort ?? facing(-dx, -dy, hx, hy);
   // 4px clear of the outline, so the head points at the box rather than into it.
   const out = (n, i) => ({ x: anchor(n, i).x + NORMAL[i][0] * 4, y: anchor(n, i).y + NORMAL[i][1] * 4 });
   const p1 = out(a, fp), p2 = out(b, tp);
