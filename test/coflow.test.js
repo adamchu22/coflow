@@ -47,6 +47,7 @@ test("an updated flowchart from the agent keeps the positions the human dragged"
   hand.x = 999; hand.y = 42;
   placed.edges.find((e) => e.id === "n0__q").fromPort = 2;   // arrow pinned to the bottom side
   hand.color = "#ff8800"; hand.sw = 3; hand.opacity = 0.5;   // and styled by hand
+  hand.w = 260; hand.h = 96;                                 // and stretched to fit its label
 
   // Agent sends back the same chart plus one new node.
   const next = parseMermaid(SRC + "\n  n1 --> done([Done])");
@@ -58,6 +59,8 @@ test("an updated flowchart from the agent keeps the positions the human dragged"
   assert.equal(merged.nodes.find((n) => n.id === "q").color, "#ff8800", "so does the colour");
   assert.equal(merged.nodes.find((n) => n.id === "q").sw, 3, "and the stroke width");
   assert.equal(merged.nodes.find((n) => n.id === "q").opacity, 0.5, "and the opacity");
+  assert.equal(merged.nodes.find((n) => n.id === "q").w, 260, "and the size you dragged it to");
+  assert.equal(merged.nodes.find((n) => n.id === "q").h, 96);
   const fresh = merged.nodes.find((n) => n.id === "done");
   assert.ok(Number.isFinite(fresh.x) && Number.isFinite(fresh.y), "new node got laid out");
 });

@@ -66,7 +66,12 @@ Comments you marked *I fixed it* move to `resolvedComments`.
 - **Labels.** Double-click an arrow to write `yes` / `no` / whatever the branch means.
   Double-click a box to rename it.
 - **Shapes.** rectangle `[]`, rounded `()`, stadium `([])`, circle `(())`, diamond `{}` —
-  the same five flowchartai uses, so everything maps onto real Mermaid.
+  the same five flowchartai uses, so everything maps onto real Mermaid. Made a box and
+  meant a decision? The five shapes sit in the panel; switching keeps the arrows attached.
+- **Resize.** Select a box and drag the corner grip. It grows from its centre, and the
+  label rewraps to fit — wider means more words per line, taller means more lines.
+- **Copy.** `⌘C` / `⌘V` duplicates the selected boxes, the arrows between them, and their
+  styling, dropped just off the originals and already selected so you can drag them away.
 - **Branch by keyboard.** With a box selected, `⌘`+arrow makes one box that way and draws
   the arrow. Press it again and the branch *splits*: the same box now fans into two equally
   spaced siblings, then three, then four. Unnamed boxes show dashed; `Enter` names the
@@ -78,8 +83,9 @@ Comments you marked *I fixed it* move to `resolvedComments`.
 - **Right-click** any box, arrow, paragraph or empty canvas for a menu — including a
   comment box that opens where you clicked, so you never leave what you're talking about.
 
-Position, styling, and which side an arrow attaches to are yours: Mermaid cannot express
-them, so they live in `flow.json` and survive the agent handing back a new chart.
+Position, size, styling, and which side an arrow attaches to are yours: Mermaid cannot
+express them, so they live in `flow.json` and survive the agent handing back a new chart.
+Shape is not — that is semantics, so it round-trips through Mermaid like the labels do.
 
 ## The doc
 

@@ -75,7 +75,7 @@ Then:
 
 **`humanOps` is the list of edits they made by hand.** Read it before you touch the chart
 again: re-adding a node they just deleted is the fastest way to lose their trust. The same
-goes for layout — their positions, styling, and arrow attachment points are theirs and
+goes for layout — their positions, box sizes, styling and arrow attachment points are theirs and
 survive you sending a new chart, so send semantics and leave the geometry alone.
 
 ## The folder

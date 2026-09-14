@@ -87,7 +87,7 @@
         <path id="rubber" marker-end="url(#arrow-sel)"></path>
       </g>
     </svg>
-    <div id="hint" class="hint">Blue dot or ⌘+arrow for the next box — ⌘+arrow again splits the branch · right-click anything to comment · drag empty canvas to select · ⌘Z undo</div>
+    <div id="hint" class="hint">Blue dot or ⌘+arrow for the next box — ⌘+arrow again splits the branch · right-click anything to comment · drag the corner to resize · ⌘C/⌘V to copy · ⌘Z undo</div>
     <div id="lint" class="lint"></div>
     <div id="toast" class="toast" hidden></div>
   </section>
@@ -126,6 +126,14 @@
     <span class="spacer"></span>
     <button class="mini" id="i-comment" aria-label="Comment on this">💬</button>
     <button class="mini" id="i-del" aria-label="Delete this">🗑</button>
+  </div>
+  <!-- Made a box and meant a decision? Switch it here; the arrows stay attached. -->
+  <div class="row shapes" data-nodes-only>
+    <button class="mini" data-shape="rectangle" aria-label="Step">▭</button>
+    <button class="mini" data-shape="rounded" aria-label="Rounded step">▢</button>
+    <button class="mini" data-shape="diamond" aria-label="Decision">◇</button>
+    <button class="mini" data-shape="stadium" aria-label="Start / End">⬭</button>
+    <button class="mini" data-shape="circle" aria-label="Terminator">◯</button>
   </div>
   <label class="frow" data-nodes-only>Fill <input type="color" id="i-fill" value="#ffffff"></label>
   <label class="frow">Stroke <input type="color" id="i-stroke" value="#3f3f46"></label>

@@ -8,6 +8,9 @@ const el = (tag, attrs = {}, kids = []) => {
 };
 
 const W = 168, H = 64;
+// Boxes are that size until you drag one bigger. w/h are yours like x/y are: Mermaid cannot
+// carry them, so they live in flow.json and survive the agent handing back a new chart.
+const nw = (n) => n.w || W, nh = (n) => n.h || H;
 let S = null;                                  // server state
 let view = { x: 0, y: 0, k: 1 };
 const sel = { nodes: new Set(), edges: new Set(), blockId: null, quote: null };
@@ -352,11 +355,11 @@ svg.addEventListener("dblclick", (ev) => {
 });
 // Port offsets from a node centre, clockwise from the top. An edge with fromPort/toPort
 // set is pinned to that side; without one it takes the shortest line, as before.
-const PORTS = [[0, -H / 2], [W / 2, 0], [0, H / 2], [-W / 2, 0]];
-const anchor = (n, i) => ({ x: n.x + PORTS[i][0], y: n.y + PORTS[i][1] });
+const ports = (n) => [[0, -nh(n) / 2], [nw(n) / 2, 0], [0, nh(n) / 2], [-nw(n) / 2, 0]];
+const anchor = (n, i) => { const [ox, oy] = ports(n)[i]; return { x: n.x + ox, y: n.y + oy }; };
 const nearestPort = (n, p) => {
   let best, bd = 22;   // aim at a dot to pin that side; drop mid-box and the arrow stays auto
-  PORTS.forEach((_, i) => {
+  ports(n).forEach((_, i) => {
     const a = anchor(n, i), d = Math.hypot(p.x - a.x, p.y - a.y);
     if (d < bd) { bd = d; best = i; }
   });
@@ -405,7 +408,7 @@ function applyView() {
   $("#zoomlabel").textContent = Math.round(view.k * 100) + "%";
 }
 
-function wrap(label, max = 20) {
+function wrap(label, max = 20, rows = 3) {
   const words = String(label).split(/\s+/);
   const lines = [];
   let cur = "";
@@ -414,22 +417,22 @@ function wrap(label, max = 20) {
     else cur = (cur + " " + w).trim();
   }
   if (cur) lines.push(cur);
-  return lines.slice(0, 3);
+  return lines.slice(0, rows);
 }
 
 // flowchartai's shape vocabulary: rectangle, rounded, stadium, circle, diamond.
 function shapeEl(n) {
-  const type = n.type, cls = "n-box " + type;
+  const type = n.type, cls = "n-box " + type, w = nw(n), h = nh(n);
   // Inline style, not fill/stroke attributes: the stylesheet would win over an attribute.
   const style = [
     n.color && `fill:${n.color}`,
     n.stroke ? `stroke:${n.stroke}` : n.color && `stroke:color-mix(in srgb,${n.color} 60%,#111)`,
     n.sw && `stroke-width:${n.sw}`,
   ].filter(Boolean).join(";") || undefined;
-  if (type === "diamond") return el("path", { class: cls, style, d: `M${W / 2} 0 L${W} ${H / 2} L${W / 2} ${H} L0 ${H / 2} Z` });
-  if (type === "circle") return el("ellipse", { class: cls, style, cx: W / 2, cy: H / 2, rx: W / 2, ry: H / 2 });
-  const rx = type === "stadium" ? H / 2 : type === "rounded" ? 18 : 6;
-  return el("rect", { class: cls, style, width: W, height: H, rx });
+  if (type === "diamond") return el("path", { class: cls, style, d: `M${w / 2} 0 L${w} ${h / 2} L${w / 2} ${h} L0 ${h / 2} Z` });
+  if (type === "circle") return el("ellipse", { class: cls, style, cx: w / 2, cy: h / 2, rx: w / 2, ry: h / 2 });
+  const rx = type === "stadium" ? h / 2 : type === "rounded" ? 18 : 6;
+  return el("rect", { class: cls, style, width: w, height: h, rx });
 }
 
 function renderCanvas() {
@@ -453,27 +456,35 @@ function renderCanvas() {
     const open = S.comments.filter((c) => (c.target.nodeIds || []).includes(n.id) && c.status === "open");
     const g = el("g", {
       class: ["node", sel.nodes.has(n.id) ? "sel" : "", drafts.has(n.id) ? "tmp" : "", flash.nodes.includes(n.id) ? "added" : ""].filter(Boolean).join(" "),
-      transform: `translate(${n.x - W / 2} ${n.y - H / 2})`, "data-id": n.id,
+      transform: `translate(${n.x - nw(n) / 2} ${n.y - nh(n) / 2})`, "data-id": n.id,
     });
     if (n.opacity !== undefined) g.setAttribute("opacity", n.opacity);
     g.append(shapeEl(n));
 
-    const lines = wrap(n.label, n.type === "diamond" || n.type === "circle" ? 14 : 20);
-    const t = el("text", { x: W / 2, y: H / 2 - (lines.length - 1) * 8 + 5 });
-    lines.forEach((l, i) => t.append(el("tspan", { x: W / 2, dy: i ? 16 : 0 }, l)));
+    // Wider box, more words per line; taller box, more lines — that is what resizing is for.
+    const w = nw(n), h = nh(n), tight = n.type === "diamond" || n.type === "circle";
+    const lines = wrap(n.label, Math.max(6, Math.round((w / (tight ? 12 : 8.4)))), Math.max(1, Math.floor(h / 20)));
+    const t = el("text", { x: w / 2, y: h / 2 - (lines.length - 1) * 8 + 5 });
+    lines.forEach((l, i) => t.append(el("tspan", { x: w / 2, dy: i ? 16 : 0 }, l)));
     g.append(t);
 
     // Two circles per port: a fat invisible one you can actually hit, a small visible dot.
-    [[W / 2, 0], [W, H / 2], [W / 2, H], [0, H / 2]].forEach(([px, py], i) => {
+    [[w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2]].forEach(([px, py], i) => {
       const hit = el("circle", { class: "porthit", cx: px, cy: py, r: 15 });
       hit.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); startLink(ev, n, i); });
       g.append(hit, el("circle", { class: "port", cx: px, cy: py, r: 5.5 }));
     });
     if (open.length) {
-      const pin = el("g", { class: "cpin", transform: `translate(${W - 6} -6)` });
+      const pin = el("g", { class: "cpin", transform: `translate(${w - 6} -6)` });
       pin.append(el("circle", { r: 9 }), el("text", { y: 3.5 }, String(open.length)));
       pin.addEventListener("pointerdown", (ev) => { ev.stopPropagation(); document.querySelector(`[data-cid="${open[0].id}"]`)?.scrollIntoView({ block: "center" }); });
       g.append(pin);
+    }
+    // Grip on the corner of the one selected box: drag it so a long label fits.
+    if (sel.nodes.size === 1 && sel.nodes.has(n.id)) {
+      const grip = el("path", { class: "grip", d: `M${w - 14} ${h} L${w} ${h} L${w} ${h - 14} Z` });
+      grip.addEventListener("pointerdown", (ev) => startResize(ev, n));
+      g.append(grip);
     }
     g.addEventListener("pointerdown", (ev) => startDrag(ev, n));
     gN.append(g);
@@ -507,7 +518,7 @@ function edgePath(a, b, e = {}) {
   const fp = e.fromPort ?? facing(dx, dy);
   const tp = e.toPort ?? facing(-dx, -dy);
   // 4px clear of the outline, so the head points at the box rather than into it.
-  const out = (n, i) => ({ x: n.x + PORTS[i][0] + NORMAL[i][0] * 4, y: n.y + PORTS[i][1] + NORMAL[i][1] * 4 });
+  const out = (n, i) => ({ x: anchor(n, i).x + NORMAL[i][0] * 4, y: anchor(n, i).y + NORMAL[i][1] * 4 });
   const p1 = out(a, fp), p2 = out(b, tp);
   // How far each end holds its own direction: half the room it actually has that way, so
   // the curve never overshoots the gap and kinks back on itself.
@@ -560,12 +571,30 @@ function startDrag(ev, n) {
   svg.addEventListener("pointermove", move); svg.addEventListener("pointerup", up);
 }
 
+// Drag the corner grip. The box grows from its centre so the arrows stay where they point.
+function startResize(ev, n) {
+  ev.stopPropagation();
+  svg.setPointerCapture(ev.pointerId);
+  const start = toWorld(ev), w0 = nw(n), h0 = nh(n);
+  const move = (e) => {
+    const p = toWorld(e);
+    n.w = Math.round(Math.max(80, w0 + (p.x - start.x) * 2));
+    n.h = Math.round(Math.max(44, h0 + (p.y - start.y) * 2));
+    renderCanvas();
+  };
+  const up = () => {
+    svg.removeEventListener("pointermove", move); svg.removeEventListener("pointerup", up);
+    queueSave("resize");
+  };
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerup", up);
+}
+
 function startLink(ev, from, port) {
   svg.setPointerCapture(ev.pointerId);
   const rub = $("#rubber");
   let over = null;
   const under = (p) =>
-    S.graph.nodes.find((n) => n.id !== from.id && Math.abs(p.x - n.x) < W / 2 + 10 && Math.abs(p.y - n.y) < H / 2 + 10);
+    S.graph.nodes.find((n) => n.id !== from.id && Math.abs(p.x - n.x) < nw(n) / 2 + 10 && Math.abs(p.y - n.y) < nh(n) / 2 + 10);
   const highlight = (id) => {
     if (id === over) return;
     over = id;
@@ -600,7 +629,7 @@ function startLink(ev, from, port) {
 // and by ⌘+arrow, so chaining by keyboard lands exactly where dragging would.
 function addNext(from, port, dx = 0, dy = 0) {
   const L = Math.hypot(dx, dy);
-  const [ux, uy] = L < 50 ? [Math.sign(PORTS[port][0]), Math.sign(PORTS[port][1])] : [dx / L, dy / L];
+  const [ux, uy] = L < 50 ? NORMAL[port] : [dx / L, dy / L];
   const gap = Math.max(L, Math.abs(ux) > Math.abs(uy) ? W + 80 : H + 100);
   let x = from.x + ux * gap, y = from.y + uy * gap;
   while (S.graph.nodes.some((n) => Math.abs(n.x - x) < W * 0.9 && Math.abs(n.y - y) < H * 0.9)) { x += ux || 30; y += uy ? uy * H : H; }
@@ -650,7 +679,7 @@ function startReattach(ev, e, end) {
     svg.removeEventListener("pointermove", move); svg.removeEventListener("pointerup", up);
     rub.removeAttribute("d");
     const p = toWorld(m);
-    const hit = S.graph.nodes.find((n) => Math.abs(p.x - n.x) < W / 2 + 10 && Math.abs(p.y - n.y) < H / 2 + 10);
+    const hit = S.graph.nodes.find((n) => Math.abs(p.x - n.x) < nw(n) / 2 + 10 && Math.abs(p.y - n.y) < nh(n) / 2 + 10);
     if (!hit) return;                                  // dropped on nothing: leave it alone
     if (hit.id === other.id) return toast("An arrow needs two different boxes", true);
     const next = { ...e, [end]: hit.id, [end + "Port"]: nearestPort(hit, p) };
@@ -690,7 +719,7 @@ function startMarquee(ev) {
     for (const [k, v] of Object.entries({ x, y, width: w, height: h })) box.setAttribute(k, v);
     sel.nodes = new Set(keepN);
     for (const n of S.graph.nodes)
-      if (n.x + W / 2 > x && n.x - W / 2 < x + w && n.y + H / 2 > y && n.y - H / 2 < y + h) sel.nodes.add(n.id);
+      if (n.x + nw(n) / 2 > x && n.x - nw(n) / 2 < x + w && n.y + nh(n) / 2 > y && n.y - nh(n) / 2 < y + h) sel.nodes.add(n.id);
     // An arrow comes along when both its boxes are in the band — delete does the same.
     sel.edges = new Set([...keepE, ...S.graph.edges.filter((e) => sel.nodes.has(e.from) && sel.nodes.has(e.to)).map((e) => e.id)]);
     renderCanvas();
@@ -752,7 +781,7 @@ function inlineEdit({ x, y, w, value, placeholder = "", commit }) {
 }
 
 const rename = (n) =>
-  inlineEdit({ x: n.x, y: n.y, w: W, value: n.label, commit: (v) => { n.label = v || n.id; drafts.delete(n.id); fan = null; queueSave("rename"); } });
+  inlineEdit({ x: n.x, y: n.y, w: nw(n), value: n.label, commit: (v) => { n.label = v || n.id; drafts.delete(n.id); fan = null; queueSave("rename"); } });
 
 // Arrow labels are how a decision branch says "yes" / "no".
 function labelEdge(e) {
@@ -819,20 +848,39 @@ function syncInspector() {
   // over the same box is clutter, so the style panel waits its turn.
   if (!items.length || !$("#ctxmenu").hidden || !$("#cpop").hidden) { box.hidden = true; return; }
   const r = svg.getBoundingClientRect();
-  // Sit beside the selection, clamped into the canvas so it never lands off-screen.
-  const xs = items.map((o) => (o.x ?? nodeById(o.from)?.x ?? 0)), ys = items.map((o) => (o.y ?? nodeById(o.from)?.y ?? 0));
-  const sx = r.left + view.x + (Math.max(...xs) + W / 2 + 14) * view.k;
-  const sy = r.top + view.y + (Math.min(...ys) - H / 2) * view.k;
   box.hidden = false;
-  box.style.left = Math.min(Math.max(r.left + 8, sx), r.right - box.offsetWidth - 8) + "px";
-  box.style.top = Math.min(Math.max(r.top + 8, sy), r.bottom - box.offsetHeight - 8) + "px";
+  // Sit clear of what is actually drawn — an arrow is as wide as its curve, not as wide as
+  // the box it starts from, and the panel must never cover the ends you drag to re-route it.
+  const rects = items.map((o) => svg.querySelector(`[data-id="${o.id}"]`)?.getBoundingClientRect()).filter(Boolean);
+  const s = rects.length
+    ? { left: Math.min(...rects.map((v) => v.left)), right: Math.max(...rects.map((v) => v.right)),
+        top: Math.min(...rects.map((v) => v.top)), bottom: Math.max(...rects.map((v) => v.bottom)) }
+    : r;
+  const w = box.offsetWidth, h = box.offsetHeight, GAP = 14;
+  const fitX = (x) => Math.min(Math.max(r.left + 8, x), r.right - w - 8);
+  const fitY = (y) => Math.min(Math.max(r.top + 8, y), r.bottom - h - 8);
+  // Right of it, else left of it, else underneath — first spot that lands clear wins.
+  let x = fitX(s.right + GAP), y = fitY(s.top);
+  if (x < s.right + GAP) x = fitX(s.left - GAP - w);
+  if (x + w > s.left && x < s.right) { x = fitX(s.left); y = fitY(s.bottom + GAP); }
+  box.style.left = x + "px";
+  box.style.top = y + "px";
   const first = items[0];
-  box.querySelector("[data-nodes-only]").hidden = !sel.nodes.size;
+  box.querySelectorAll("[data-nodes-only]").forEach((r) => (r.hidden = !sel.nodes.size));
+  box.querySelectorAll("[data-shape]").forEach((b) => b.classList.toggle("on", b.dataset.shape === first.type));
   $("#i-fill").value = first.color || "#ffffff";
   $("#i-stroke").value = first.stroke || (sel.nodes.size ? "#3f3f46" : "#4b5563");
   $("#i-sw").value = first.sw || (sel.nodes.size ? 1.5 : 2);
   $("#i-op").value = first.opacity ?? 1;
 }
+
+// Shape is the agent's to write and yours to correct — it is semantics, so Mermaid carries it.
+$("#inspector").querySelectorAll("[data-shape]").forEach((b) => {
+  b.onclick = () => {
+    for (const n of S.graph.nodes) if (sel.nodes.has(n.id)) n.type = b.dataset.shape;
+    renderCanvas(); queueSave("reshape");
+  };
+});
 
 $("#i-fill").oninput = (e) => restyle({ color: e.target.value });
 $("#i-stroke").oninput = (e) => restyle({ stroke: e.target.value });
@@ -851,11 +899,35 @@ function del() {
   renderCanvas(); renderLint(); syncTarget(); queueSave("delete");
 }
 
+// ⌘C / ⌘V: the boxes, the arrows between them, and the styling — a copy, not a reference.
+let clip = null;
+const copySel = () => {
+  if (!sel.nodes.size) return;
+  clip = {
+    nodes: S.graph.nodes.filter((n) => sel.nodes.has(n.id)).map((n) => ({ ...n })),
+    edges: S.graph.edges.filter((e) => sel.nodes.has(e.from) && sel.nodes.has(e.to)).map((e) => ({ ...e })),
+  };
+  toast(`Copied ${clip.nodes.length} box${clip.nodes.length > 1 ? "es" : ""}`);
+};
+const pasteClip = () => {
+  if (!clip?.nodes.length) return;
+  const id = {};
+  const copies = clip.nodes.map((n) => ({ ...n, id: (id[n.id] = newNodeId()), x: n.x + 40, y: n.y + 40 }));
+  S.graph.nodes.push(...copies);
+  for (const e of clip.edges)
+    S.graph.edges.push({ ...e, id: `${id[e.from]}__${id[e.to]}`, from: id[e.from], to: id[e.to] });
+  // Select the copies, so the next drag moves what you just pasted.
+  sel.nodes = new Set(copies.map((n) => n.id)); sel.edges.clear();
+  renderCanvas(); renderLint(); syncTarget(); queueSave("paste");
+};
+
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input,textarea,[contenteditable]")) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "c") { e.preventDefault(); return copySel(); }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "v") { e.preventDefault(); return pasteClip(); }
   if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); del(); }
   if (e.key === "Escape") { fan = null; drafts.clear(); sel.nodes.clear(); sel.edges.clear(); renderCanvas(); syncTarget(); }
-  if (e.key === "c") commentOn();
+  if (e.key === "c" && !e.metaKey && !e.ctrlKey) commentOn();
   // ⌘+arrow makes one box that way. Press it again and the branch splits: the same origin
   // fans into two equally spaced boxes, then three, then four. Enter names one and ends it.
   if ((e.metaKey || e.ctrlKey) && e.key.startsWith("Arrow") && sel.nodes.size === 1) {
