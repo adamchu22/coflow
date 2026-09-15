@@ -1,0 +1,22 @@
+flowchart TD
+  a([Prospect submits HubSpot demo form]) --> b[HubSpot form reroutes POST to n8n]
+  b --> c{n8n instant ICP check passes within 1.5s?}
+  c -->|yes| d[Offer instant demo booking on the form]
+  d --> e{Account already owned by an AE?}
+  e -->|yes| f[Route to existing AE owner]
+  e -.->|no| g[Round robin to next AE]
+  c -.->|no or 1.5s timeout| h[Send record to HubSpot]
+  h --> i[HubSpot runs fuller ICP checks and routing]
+  i --> j{Passes HubSpot ICP?}
+  j -.->|no| k([Nurture])
+  j -->|yes| l{Account already owned by an AE?}
+  l -->|yes| m[Keep existing AE owner]
+  l -.->|no| n[Round robin to next AE]
+  m --> o[Enroll in sequence: offer demo or qualify]
+  n --> o
+  f --> p((Prospect qualified, rep assigned))
+  g --> p
+  o --> p
+  p --> q[Parallel workflow: create deal]
+  q --> r[Assign deal to the assigned rep]
+  p --> s([Demo booked or qualification underway])

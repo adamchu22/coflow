@@ -6,6 +6,5 @@
   "author": { "name": "Rugby Waldorf LLC" },
   "repository": "https://github.com/adamchu22/coflow",
   "license": "MIT",
-  "keywords": ["flowchart", "diagram", "planning", "review", "human-in-the-loop"],
-  "commands": ["./commands/coflow.md"]
+  "keywords": ["flowchart", "diagram", "planning", "review", "human-in-the-loop"]
 }

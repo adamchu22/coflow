@@ -18,7 +18,7 @@ launched it is the AI.
 ## Quick start
 
 ```bash
-npx coflow plan.md --flow flow.mmd --json --gate
+npx -y github:adamchu22/coflow plan.md --flow flow.mmd --json --gate
 ```
 
 The browser opens. When you decide, the command prints a decision JSON and exits `0` on
@@ -216,7 +216,6 @@ artifact; each manifest just points at it.
 ```
 plugin/
 ├── skills/coflow/SKILL.md       when to run it, the Mermaid profile, how to read the result
-├── commands/coflow.md           the /coflow slash command
 ├── .claude-plugin/plugin.json   Claude Code manifest
 └── plugin.json                  Codex / agent-plugins.org manifest
 .claude-plugin/marketplace.json  Claude Code marketplace
@@ -238,7 +237,7 @@ installed, nothing is added to the host, and every `coflow …` line in the skil
 
 ### Installed
 
-If you'd rather have the skill loaded every session and a `/coflow` command:
+If you'd rather have the skill loaded every session, so `/coflow` is always there:
 
 ```bash
 # Claude Code
