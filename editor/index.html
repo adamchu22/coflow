@@ -10,6 +10,8 @@
 <header>
   <span class="brand">CoFlow</span>
   <input id="title" class="title" spellcheck="false">
+  <!-- One process per flow: quote, dispatch, invoice. A box can point at another flow. -->
+  <div id="flowtabs"></div>
   <div class="spacer"></div>
   <span id="pending" class="badge"></span>
   <button id="reject" title="Close without approving">Reject</button>
@@ -78,6 +80,9 @@
         <marker id="arrow-sel" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
           <path d="M1,1.5 L11,6 L1,10.5 z" fill="#2563eb"/>
         </marker>
+        <marker id="arrow-green" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="12" markerHeight="12" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M1,1.5 L11,6 L1,10.5 z" fill="#16a34a"/>
+        </marker>
       </defs>
       <rect id="bg" x="-100000" y="-100000" width="200000" height="200000" fill="url(#dots)"/>
       <g id="world">
@@ -141,7 +146,12 @@
   <label class="frow">Width <input type="range" id="i-sw" min="1" max="8" step="0.5"></label>
   <label class="frow">Opacity <input type="range" id="i-op" min="0.15" max="1" step="0.05"></label>
   <label class="frow">Dashed <input type="checkbox" id="i-dash"></label>
+  <!-- The agent's suggestion until you untick it — that is how a proposal gets accepted. -->
+  <label class="frow">Proposed <input type="checkbox" id="i-proposed"></label>
   <button class="mini" id="i-clear">Clear styling</button>
+  <!-- Key / value pairs Mermaid cannot carry: actor, system, SLA, CRM property… -->
+  <div id="i-props" class="props"></div>
+  <button class="mini" id="i-unlink" data-nodes-only hidden>Unlink from paragraph</button>
 </div>
 
 <dialog id="fb">

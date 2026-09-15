@@ -25,6 +25,10 @@ There is no in-app AI. The agent that launched the session *is* the AI.
 | `editor/` | 801 | canvas + doc + comments + verdicts |
 | `test/coflow.test.js` | 128 | 9 tests |
 
+Later: `flows/` (many processes per project, `--flow NAME=FILE`), JSON seeds carrying
+`props` / `status: proposed` / `docRefId`, `flows` in the decision payload, and markdown
+tables edited as a grid. 15 tests.
+
 ## Steps
 
 - [x] `lib/graph.js`: Mermaid profile parse/serialize, layered BFS layout, diff, lint
@@ -71,7 +75,7 @@ There is no in-app AI. The agent that launched the session *is* the AI.
 
 ## Verification
 
-- `npm test` — 9 passing.
+- `npm test` — 15 passing.
 - CLI end-to-end: seed a plan + flowchart → comment via API → hand-edit the graph →
   Send feedback → stdout JSON carries `comments`, `humanOps`, `doc`, `mermaid`, and
   `--gate` exits 1; approve exits 0.

@@ -1,4 +1,5 @@
 // CoFlow editor. No build step, no framework: SVG canvas + contenteditable doc.
+import { isTable, parseTable, toTable } from "./table.js";
 const $ = (s) => document.querySelector(s);
 const el = (tag, attrs = {}, kids = []) => {
   const n = document.createElementNS(tag === "div" || tag === "input" ? "http://www.w3.org/1999/xhtml" : "http://www.w3.org/2000/svg", tag);
@@ -33,10 +34,64 @@ const api = async (p, opts) => {
 (async function boot() {
   S = await api("/api/project");
   $("#title").value = S.meta.title;
+  useFlow("main" in S.flows ? "main" : Object.keys(S.flows)[0]);
   renderAll();
   fit();
   setTimeout(() => $("#hint").classList.add("fade"), 9000);
+  // The server only lives while a tab is on it: a heartbeat keeps it up, closing the tab
+  // says goodbye, and either way the agent gets "dismissed" instead of waiting forever.
+  setInterval(() => fetch("./api/ping", { method: "POST" }).catch(() => {}), 10000);
+  addEventListener("pagehide", () => navigator.sendBeacon("./api/bye"));
 })();
+
+/* ─────────────── flows ─────────────── */
+// S.graph is always the flow on screen; S.flows holds all of them and is what gets saved.
+const flowSlug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "flow";
+function useFlow(name) {
+  if (!S.flows[name]) name = Object.keys(S.flows)[0];
+  S.flow = name;
+  S.graph = S.flows[name];
+  sel.nodes.clear(); sel.edges.clear();
+  renderTabs(); renderCanvas(); renderLint(); syncTarget();
+}
+function renderTabs() {
+  const host = $("#flowtabs");
+  host.textContent = "";
+  const names = Object.keys(S.flows);
+  // A native select: any number of flows stays one control wide, and the names are readable.
+  const pick = document.createElement("select");
+  pick.title = "Switch flow";
+  for (const name of names) pick.append(new Option(`${name} · ${S.flows[name].nodes.length}`, name, false, name === S.flow));
+  pick.append(new Option("＋ New flow…", "\0new"));
+  pick.onchange = () => (pick.value === "\0new" ? addFlow() : (useFlow(pick.value), fit()));
+  const more = Object.assign(document.createElement("button"), { textContent: "⋯", title: "Rename, delete, add a flow" });
+  more.onclick = (ev) => menu(ev, [
+    ["Rename this flow…", () => renameFlow(S.flow)],
+    ["New flow…", addFlow],
+    [null],
+    [`Delete “${S.flow}”`, () => removeFlow(S.flow)],
+  ]);
+  host.append(Object.assign(document.createElement("span"), { textContent: "Flow", className: "muted" }), pick, more);
+}
+function addFlow() {
+  const name = flowSlug(prompt("Name the new flow (one process — quote, dispatch, invoice…):") || "");
+  if (!name || name === "flow") return renderTabs();
+  if (!S.flows[name]) { S.flows[name] = { dir: "TD", nodes: [], edges: [] }; queueSave(`added flow "${name}"`); }
+  useFlow(name); fit();
+}
+function renameFlow(old) {
+  const name = flowSlug(prompt("Rename this flow:", old) || "");
+  if (!name || name === "flow" || name === old || S.flows[name]) return;
+  S.flows = Object.fromEntries(Object.entries(S.flows).map(([k, g]) => [k === old ? name : k, g]));
+  for (const c of S.comments) if ((c.target.flow || "main") === old) c.target.flow = name;
+  useFlow(name); queueSave(`renamed flow "${old}" to "${name}"`);
+}
+function removeFlow(name) {
+  if (!confirm(`Delete the flow "${name}" and everything in it?`)) return;
+  delete S.flows[name];
+  if (!Object.keys(S.flows).length) S.flows.main = { dir: "TD", nodes: [], edges: [] };
+  useFlow(S.flow); fit(); queueSave(`removed flow "${name}"`);
+}
 
 // The hint strip doubles as a "what now?" line while a chain is being drawn.
 let hintTimer;
@@ -115,13 +170,16 @@ function renderDoc() {
   const host = $("#doc");
   host.textContent = "";
   docMeta();
+  const linked = linkedBlocks();
   for (const b of S.doc.blocks) {
     const n = S.comments.filter((c) => c.target.blockId === b.id && c.status === "open").length;
+    const table = isTable(b.text);
     const d = el("div", {
-      class: ["block", blockClass(b.text), sel.blockId === b.id ? "sel" : "", n ? "commented" : ""].filter(Boolean).join(" "),
-      contenteditable: "true", "data-id": b.id, spellcheck: "false",
+      class: ["block", table ? "table" : blockClass(b.text), sel.blockId === b.id ? "sel" : "", n ? "commented" : "", linked.has(b.id) ? "linked" : ""].filter(Boolean).join(" "),
+      contenteditable: table ? "false" : "true", "data-id": b.id, spellcheck: "false",
     });
-    d.innerHTML = md(b.text) || "<br>";
+    if (table) d.append(tableEl(parseTable(b.text)));
+    else d.innerHTML = md(b.text) || "<br>";
     // ponytail: mark the first literal occurrence. A quote broken across markup tags
     // simply doesn't highlight — the comment still names it.
     for (const q of S.comments.filter((c) => c.target.quote && c.target.blockId === b.id && c.status === "open")) {
@@ -133,10 +191,35 @@ function renderDoc() {
   }
 }
 
+// A table block is a grid of cells, each its own contenteditable. The block's text is
+// rebuilt from the cells on every keystroke, so doc.md always holds a markdown table.
+function tableEl(rows) {
+  const t = document.createElement("table");
+  for (const r of rows) {
+    const tr = t.insertRow();
+    for (const c of r) Object.assign(tr.insertCell(), { contentEditable: "true", textContent: c });
+  }
+  return t;
+}
+const cellsOf = (d) => [...d.querySelectorAll("tr")].map((tr) => [...tr.cells].map((td) => td.textContent.trim()));
+const cellAt = (t) => { const td = t.closest("td"); return td ? { r: td.parentElement.rowIndex, c: td.cellIndex } : null; };
+function editTable(d, fn) {
+  const rows = cellsOf(d);
+  const b = S.doc.blocks.find((b) => b.id === d.dataset.id);
+  b.text = toTable(fn(rows) || rows);
+  renderDoc(); queueSave("edited a table");
+  return document.querySelector(`[data-id="${b.id}"]`);
+}
+const focusCell = (d, r, c) => d?.querySelectorAll("tr")[r]?.cells[c]?.focus();
+
+// Paragraphs the selected boxes are described in: the two light up together.
+const linkedBlocks = () => new Set(S.graph ? S.graph.nodes.filter((n) => sel.nodes.has(n.id) && n.docRefId).map((n) => n.docRefId) : []);
+
 $("#doc").addEventListener("input", (e) => {
   const d = e.target.closest(".block");
   if (!d || e.isComposing) return;
   const b = S.doc.blocks.find((b) => b.id === d.dataset.id);
+  if (d.classList.contains("table")) { b.text = toTable(cellsOf(d)); return queueSave(); }
   b.text = d.textContent.replace(/​/g, "");
   const off = caretOffset(d);
   d.className = ["block", blockClass(b.text), "sel"].filter(Boolean).join(" ");
@@ -192,6 +275,39 @@ $("#doc").addEventListener("keydown", (e) => {
   const d = e.target.closest(".block");
   if (!d) return;
   const i = S.doc.blocks.findIndex((b) => b.id === d.dataset.id);
+  // In a table, Enter moves down a row and makes one at the bottom; Tab already moves across.
+  // Enter on an empty last row leaves the table — the same way a list ends — and the
+  // arrow keys walk out of it at the top and bottom edges.
+  if (d.classList.contains("table")) {
+    const at = cellAt(e.target);
+    if (!at) return;
+    const rows = cellsOf(d), last = at.r === rows.length - 1;
+    const leave = (j) => {
+      e.preventDefault();
+      const nb = S.doc.blocks[j];
+      if (nb) return document.querySelector(`[data-id="${nb.id}"]`)?.focus();
+      const id = "b" + Math.random().toString(36).slice(2, 8);
+      S.doc.blocks.splice(i + 1, 0, { id, text: "" });
+      renderDoc(); queueSave();
+      document.querySelector(`[data-id="${id}"]`)?.focus();
+    };
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (last && rows.length > 2 && rows[at.r].every((c) => !c)) { editTable(d, (r) => r.slice(0, -1)); return leave(i + 1); }
+      focusCell(last ? editTable(d, (r) => [...r, r[0].map(() => "")]) : d, at.r + 1, at.c);
+    }
+    // A cell's own undo knows nothing about the row you just added, so ⌘Z here steps the
+    // whole project back a revision — typing is saved in short bursts, so that undoes too.
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") { e.preventDefault(); return undo(); }
+    const s = getSelection(), caret = s?.anchorOffset ?? 0, len = e.target.textContent.length, cols = rows[0].length;
+    const go = (r, c) => { e.preventDefault(); focusCell(d, r, c); };
+    if (e.key === "ArrowDown") return last ? leave(i + 1) : go(at.r + 1, at.c);
+    if (e.key === "ArrowUp") return at.r === 0 ? (i > 0 && leave(i - 1)) : go(at.r - 1, at.c);
+    if (e.key === "ArrowRight" && caret >= len && (at.c < cols - 1 || !last)) return at.c < cols - 1 ? go(at.r, at.c + 1) : go(at.r + 1, 0);
+    if (e.key === "ArrowLeft" && caret === 0 && (at.c > 0 || at.r > 0)) return at.c > 0 ? go(at.r, at.c - 1) : go(at.r - 1, cols - 1);
+    if (e.key === "Backspace" && !len && (at.c > 0 || at.r > 0)) return at.c > 0 ? go(at.r, at.c - 1) : go(at.r - 1, cols - 1);
+    return;
+  }
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     const id = "b" + Math.random().toString(36).slice(2, 8);
@@ -274,6 +390,9 @@ const commentOn = () => {
 $("#doc").addEventListener("contextmenu", (ev) => {
   const d = ev.target.closest(".block");
   if (!d) return;
+  // Boxes selected on the canvas can be tied to this paragraph — grab them before the
+  // paragraph takes the selection over.
+  const boxes = S.graph.nodes.filter((n) => sel.nodes.has(n.id));
   sel.nodes.clear(); sel.edges.clear();
   sel.blockId = d.dataset.id;
   document.querySelectorAll(".block.sel").forEach((x) => x.classList.remove("sel"));
@@ -281,10 +400,30 @@ $("#doc").addEventListener("contextmenu", (ev) => {
   renderCanvas();
   const quote = hi && hi.id === d.dataset.id && hi.end > hi.start
     ? { blockId: hi.id, quote: S.doc.blocks.find((b) => b.id === hi.id).text.slice(hi.start, hi.end) } : null;
+  const at = cellAt(ev.target);
+  const i = S.doc.blocks.findIndex((b) => b.id === d.dataset.id);
+  const insertBelow = (text) => {
+    const id = "b" + Math.random().toString(36).slice(2, 8);
+    S.doc.blocks.splice(i + 1, 0, { id, text });
+    renderDoc(); queueSave("inserted a table");
+    focusCell(document.querySelector(`[data-id="${id}"]`), 0, 0);
+  };
   menu(ev, [
     quote && [`Comment on “${quote.quote.slice(0, 24)}”…`, () => commentPopover(quote, ev.clientX, ev.clientY)],
     ["Comment on this paragraph…", () => commentPopover({ blockId: d.dataset.id }, ev.clientX, ev.clientY)],
     ["General note…", () => commentPopover({}, ev.clientX, ev.clientY)],
+    boxes.length && [null],
+    boxes.length && [`Link “${boxes.map((n) => n.label).join(", ").slice(0, 30)}” to this paragraph`, () => {
+      for (const n of boxes) n.docRefId = d.dataset.id;
+      sel.nodes = new Set(boxes.map((n) => n.id)); sel.blockId = null;
+      renderDoc(); renderCanvas(); syncTarget(); queueSave("linked to a paragraph");
+    }],
+    [null],
+    at && ["Add a row below", () => focusCell(editTable(d, (r) => (r.splice(at.r + 1, 0, r[0].map(() => "")), r)), at.r + 1, at.c)],
+    at && ["Add a column after", () => focusCell(editTable(d, (r) => r.map((row) => (row.splice(at.c + 1, 0, ""), row))), at.r, at.c + 1)],
+    at && at.r > 0 && ["Delete this row", () => editTable(d, (r) => (r.splice(at.r, 1), r))],
+    at && d.querySelector("tr").cells.length > 1 && ["Delete this column", () => editTable(d, (r) => r.map((row) => (row.splice(at.c, 1), row)))],
+    !at && ["Insert a table below", () => insertBelow(toTable([["Field", "Maps to", "Rule"], ["", "", ""]]))],
     [null],
     ["Expand the doc", () => $("#t-expand").click()],
   ].filter(Boolean));
@@ -307,7 +446,8 @@ function selOffsets(d) {
 let hi = null;   // { block, start, end } — what is highlighted right now
 document.addEventListener("selectionchange", () => {
   const d = getSelection().anchorNode?.parentElement?.closest?.("#doc .block");
-  const o = d && selOffsets(d);
+  // Offsets into a table's text mean nothing, so no format bar there.
+  const o = d && !d.classList.contains("table") && selOffsets(d);
   const bar = $("#selbar");
   if (!o) { bar.hidden = true; hi = null; return; }
   hi = { id: d.dataset.id, ...o };
@@ -416,6 +556,8 @@ svg.addEventListener("contextmenu", (ev) => {
     ["Add comment…", () => commentPopover(targetOf(), ev.clientX, ev.clientY)],
     [n ? "Rename" : "Label this arrow", () => (n ? rename(n) : labelEdge(S.graph.edges.find((e) => e.id === id)))],
     n && ["Add the next step →", () => { const to = addNext(n, 1); link(n, to, 1); rename(to); }],
+    n?.status === "proposed" && ["Accept this proposal", () => { for (const id of sel.nodes) delete nodeById(id).status; renderCanvas(); queueSave("accepted proposal"); }],
+    n?.props?.flow && S.flows[n.props.flow] && [`Open flow “${n.props.flow}”`, () => useFlow(n.props.flow)],
     [null],
     ["Delete", del],
   ].filter(Boolean));
@@ -470,7 +612,7 @@ function renderCanvas() {
     const a = nodeById(e.from), b = nodeById(e.to);
     if (!a || !b) continue;
     const p = edgePath(a, b, e);
-    const g = el("g", { class: ["edge", e.style === "dashed" ? "dashed" : "", sel.edges.has(e.id) ? "sel" : "", flash.edges.includes(e.id) ? "added" : ""].filter(Boolean).join(" "), "data-id": e.id });
+    const g = el("g", { class: ["edge", e.style === "dashed" ? "dashed" : "", e.status === "proposed" ? "proposed" : "", sel.edges.has(e.id) ? "sel" : "", flash.edges.includes(e.id) ? "added" : ""].filter(Boolean).join(" "), "data-id": e.id });
     if (e.opacity !== undefined) g.setAttribute("opacity", e.opacity);
     const st = [e.color && `stroke:${e.color};marker-end:url(#arrow-ctx)`, e.sw && `stroke-width:${e.sw}`].filter(Boolean).join(";");
     g.append(el("path", { class: "hit", d: p.d }), el("path", { d: p.d, style: st || undefined }));
@@ -480,9 +622,9 @@ function renderCanvas() {
   }
 
   for (const n of S.graph.nodes) {
-    const open = S.comments.filter((c) => (c.target.nodeIds || []).includes(n.id) && c.status === "open");
+    const open = S.comments.filter((c) => (c.target.flow || "main") === S.flow && (c.target.nodeIds || []).includes(n.id) && c.status === "open");
     const g = el("g", {
-      class: ["node", sel.nodes.has(n.id) ? "sel" : "", drafts.has(n.id) ? "tmp" : "", flash.nodes.includes(n.id) ? "added" : ""].filter(Boolean).join(" "),
+      class: ["node", sel.nodes.has(n.id) ? "sel" : "", drafts.has(n.id) ? "tmp" : "", flash.nodes.includes(n.id) ? "added" : "", n.status === "proposed" ? "proposed" : "", n.docRefId && sel.blockId === n.docRefId ? "linked" : ""].filter(Boolean).join(" "),
       transform: `translate(${n.x - nw(n) / 2} ${n.y - nh(n) / 2})`, "data-id": n.id,
     });
     if (n.opacity !== undefined) g.setAttribute("opacity", n.opacity);
@@ -494,6 +636,9 @@ function renderCanvas() {
     const t = el("text", { x: w / 2, y: h / 2 - (lines.length - 1) * 8 + 5 });
     lines.forEach((l, i) => t.append(el("tspan", { x: w / 2, dy: i ? 16 : 0 }, l)));
     g.append(t);
+    // ¶ = tied to a paragraph, ↗ = points at another flow.
+    const tag = [n.docRefId && "¶", n.props?.flow && "↗"].filter(Boolean).join("");
+    if (tag) g.append(el("text", { class: "tag", x: 6, y: 12 }, tag));
 
     // A fat transparent stroke along the shape's own outline: hovering the edge of anything
     // hits it, a diamond's diagonals included. Which way you are resizing comes from where
@@ -876,8 +1021,9 @@ $("#t-label").onclick = () => {
 $("#t-fit").onclick = fit;
 $("#t-layout").onclick = async () => {
   for (const n of S.graph.nodes) { n.x = null; n.y = null; }
-  S = { ...S, ...(await api("/api/save", { method: "POST", body: JSON.stringify({ graph: S.graph, note: "auto-layout" }) })) };
-  renderCanvas(); fit();
+  const r = await api("/api/save", { method: "POST", body: JSON.stringify({ flows: S.flows, note: "auto-layout" }) });
+  S.meta.rev = r.rev; S.flows = r.flows; S.lint = r.lint; S.versions = r.versions;
+  useFlow(S.flow); renderVersions(); fit();
 };
 $("#t-comment").onclick = commentOn;
 
@@ -922,6 +1068,30 @@ function syncInspector() {
   $("#i-sw").value = first.sw || (sel.nodes.size ? 1.5 : 2);
   $("#i-op").value = first.opacity ?? 1;
   $("#i-dash").checked = !!first.dash || first.style === "dashed";
+  $("#i-proposed").checked = first.status === "proposed";
+  $("#i-unlink").hidden = !(items.length === 1 && first.docRefId);
+  renderProps(items.length === 1 ? first : null);
+}
+
+// One row per prop plus a blank one to type the next into. Only for a single selection —
+// bulk-editing an actor across five boxes is a job for the agent, not a grid.
+function renderProps(o) {
+  const host = $("#i-props");
+  host.textContent = "";
+  if (!o) return;
+  const rows = [...Object.entries(o.props || {}), ["", ""]];
+  for (const [k, v] of rows) {
+    const key = Object.assign(document.createElement("input"), { value: k, placeholder: "prop" });
+    const val = Object.assign(document.createElement("input"), { value: String(v), placeholder: "value" });
+    host.append(key, val);
+  }
+  host.onchange = () => {
+    const inputs = [...host.querySelectorAll("input")];
+    const props = {};
+    for (let i = 0; i < inputs.length; i += 2) if (inputs[i].value.trim()) props[inputs[i].value.trim()] = inputs[i + 1].value;
+    Object.keys(props).length ? (o.props = props) : delete o.props;
+    renderCanvas(); queueSave("changed props");
+  };
 }
 
 // Shape is the agent's to write and yours to correct — it is semantics, so Mermaid carries it.
@@ -945,6 +1115,11 @@ $("#i-dash").onchange = (e) => {
   renderCanvas(); queueSave(on ? "made it dashed" : "made it solid");
 };
 $("#i-clear").onclick = () => restyle({ color: undefined, stroke: undefined, sw: undefined, opacity: undefined, dash: undefined }, "cleared styling");
+$("#i-proposed").onchange = (e) => {
+  for (const o of selected()) e.target.checked ? (o.status = "proposed") : delete o.status;
+  renderCanvas(); queueSave(e.target.checked ? "marked as proposed" : "accepted proposal");
+};
+$("#i-unlink").onclick = () => { for (const n of selected()) delete n.docRefId; renderDoc(); renderCanvas(); queueSave("unlinked from paragraph"); };
 $("#i-label").onclick = () => $("#t-label").click();
 $("#i-del").onclick = del;
 $("#i-comment").onclick = () => { const b = $("#inspector").getBoundingClientRect(); commentPopover(targetOf(), b.left, b.bottom + 6); };
@@ -990,7 +1165,7 @@ const text = (fmt) => fetch("./api/export?fmt=" + fmt).then((r) => r.text());
 $("#t-export").onclick = (ev) =>
   menu(ev, [
     ["Doc as Markdown", async () => download(`${slug()}.md`, new Blob([await text("md")], { type: "text/markdown" }))],
-    ["Chart as Mermaid", async () => download(`${slug()}.mmd`, new Blob([await text("mermaid")], { type: "text/plain" }))],
+    ["Chart as Mermaid", async () => download(`${slug()}.mmd`, new Blob([await text("mermaid&flow=" + S.flow)], { type: "text/plain" }))],
     [null],
     ["Chart as SVG", async () => download(`${slug()}.svg`, new Blob([await chartSvg()], { type: "image/svg+xml" }))],
     ["Chart as PNG", async () => download(`${slug()}.png`, await chartPng())],
@@ -1072,7 +1247,7 @@ async function flushSave() {
   const note = dirty;
   dirty = null;
   try {
-    const r = await api("/api/save", { method: "POST", body: JSON.stringify({ doc: S.doc, graph: S.graph, title: $("#title").value, note }) });
+    const r = await api("/api/save", { method: "POST", body: JSON.stringify({ doc: S.doc, flows: S.flows, title: $("#title").value, note }) });
     S.meta.rev = r.rev; S.lint = r.lint; S.versions = r.versions;
     docMeta(); renderLint(); renderVersions();
   } catch (err) { toast(err.message, true); }
@@ -1086,6 +1261,7 @@ async function undo(rev) {
   if (!rev) return toast("Nothing to undo yet", true);
   S = { ...S, ...(await api("/api/undo", { method: "POST", body: JSON.stringify({ rev }) })) };
   sel.nodes.clear(); sel.edges.clear();
+  useFlow(S.flow);
   renderAll();
 }
 $("#title").oninput = () => queueSave("title");
@@ -1093,7 +1269,7 @@ $("#title").oninput = () => queueSave("title");
 /* ─────────────── comments ─────────────── */
 function targetOf() {
   if (sel.quote) return sel.quote;
-  if (sel.nodes.size || sel.edges.size) return { nodeIds: [...sel.nodes], edgeIds: [...sel.edges] };
+  if (sel.nodes.size || sel.edges.size) return { nodeIds: [...sel.nodes], edgeIds: [...sel.edges], flow: S.flow };
   if (sel.blockId) return { blockId: sel.blockId };
   return {};   // nothing selected is still a comment: it is about the project as a whole
 }
@@ -1102,8 +1278,10 @@ function describe(t) {
   if (!t || (!t.blockId && !t.nodeIds?.length && !t.edgeIds?.length)) return "General note";
   if (t.quote) return "“" + t.quote.slice(0, 40) + "”";
   if (t.blockId) return "¶ " + (S.doc.blocks.find((b) => b.id === t.blockId)?.text.slice(0, 40) || "(paragraph)");
-  const names = (t.nodeIds || []).map((id) => nodeById(id)?.label || id);
-  return "◆ " + [...names, ...(t.edgeIds || [])].join(", ");
+  const g = S.flows[t.flow || "main"] ?? S.graph;
+  const names = (t.nodeIds || []).map((id) => g.nodes.find((n) => n.id === id)?.label || id);
+  const where = t.flow && t.flow !== S.flow ? `[${t.flow}] ` : "";
+  return "◆ " + where + [...names, ...(t.edgeIds || [])].join(", ");
 }
 
 function syncTarget() {
@@ -1111,6 +1289,10 @@ function syncTarget() {
   const box = $("#target");
   box.textContent = describe(t);
   box.classList.toggle("on", Boolean(t.blockId || t.nodeIds?.length || t.edgeIds?.length));
+  // Pick a box and the paragraph it is tied to lights up and scrolls into view.
+  const linked = linkedBlocks();
+  document.querySelectorAll(".block").forEach((d) => d.classList.toggle("linked", linked.has(d.dataset.id)));
+  if (sel.nodes.size === 1) document.querySelector(`.block.linked`)?.scrollIntoView({ block: "nearest" });
 }
 
 $("#cadd").onclick = async () => {
@@ -1172,6 +1354,7 @@ function renderComments() {
 }
 
 function focusTarget(t) {
+  if (t?.flow && S.flows[t.flow] && t.flow !== S.flow) useFlow(t.flow);
   if (t?.blockId) return document.querySelector(`[data-id="${t.blockId}"]`)?.focus();
   sel.nodes = new Set(t?.nodeIds || []);
   sel.edges = new Set(t?.edgeIds || []);
@@ -1204,7 +1387,7 @@ function renderVersions() {
 function renderLint() {
   const host = $("#lint");
   host.textContent = "";
-  for (const w of (S.lint || []).slice(0, 3)) {
+  for (const w of (S.lint?.[S.flow] || []).slice(0, 3)) {
     host.append(Object.assign(document.createElement("div"), { textContent: "⚠ " + w }));
   }
 }

@@ -30,7 +30,8 @@ coflow - --flow flow.mmd            read the plan from stdin
 coflow "Vendor onboarding"          open an empty project with that title
 coflow attach <DIR>                 print the handoff for a project you saved earlier
 
-  --flow FILE.mmd      seed the canvas from a Mermaid flowchart
+  --flow FILE          seed the main flow: FILE.mmd is Mermaid, FILE.json is a graph with
+                       props / status / docRefId. Repeat with NAME=FILE for more flows
   --save-dir DIR       project folder (default ./coflow)
   --json               print the decision as JSON instead of prose
   --gate               exit codes: 0 approved, 1 changes requested / rejected, 2 usage error
@@ -44,6 +45,8 @@ coflow attach <DIR>                 print the handoff for a project you saved ea
 2. You edit. Everything you touch is logged in plain English.
 3. You **Approve** (final — build against it), **Send feedback** (every comment is an
    instruction; the agent revises and reopens the same folder), or **Reject** (stop).
+   Closing the tab counts as a dismissal too: the server lives only while a tab is on it and
+   exits on its own about 30 seconds later, so no stray servers pile up.
 4. Re-running against the same `--save-dir` keeps your work. **Every box you moved stays
    where you put it** — the agent supplies semantics, you own the geometry.
 
@@ -57,13 +60,16 @@ What the agent gets:
   "humanOps":  ["relabelled edge q__c to \"after 30 days\"", "removed node \"Reject\" (c)"],
   "doc":       "# Vendor onboarding\n\nFirst we check the vendor…",
   "mermaid":   "flowchart TD\n  a([\"Start\"])\n  a --> q{\"Valid?\"}…",
+  "flows":     { "main": { "mermaid": "…", "graph": { "dir": "TD", "nodes": [{ "id": "a", "label": "Start", "props": { "actor": "rep" } }], "edges": [] } } },
   "version": 7,
   "dir": "/abs/path/to/coflow"
 }
 ```
 
 `humanOps` is the log of what you changed by hand, so the agent doesn't re-add the node you
-just deleted. Comments you marked *I fixed it* move to `resolvedComments`.
+just deleted. Comments you marked *I fixed it* move to `resolvedComments`. `mermaid` is the
+main flow; `flows` is every flow, as Mermaid and as the full graph — that is where `props`,
+`status` and `docRefId` come back, since Mermaid cannot carry them.
 
 ## The canvas
 
@@ -104,6 +110,22 @@ Mermaid cannot express them, so they live in `flow.json` and survive the agent h
 a new chart. Shape and arrow style are **not** — those are semantics, and they round-trip
 through Mermaid like the labels do.
 
+### Flows, props, proposals, links
+
+- **Several flows per project.** A dropdown in the title bar: one process each — quote,
+  dispatch, invoice. Its ⋯ menu renames, deletes, or adds one. Seed them with `--flow name=file`.
+  A box whose `flow` prop names another flow gets an ↗ and *Open flow* on right-click.
+- **Props.** Select one box or arrow and the panel shows key/value rows: actor, system, SLA,
+  CRM property, whatever the process needs. Mermaid cannot carry them, so the agent seeds
+  them through a `.json` flow and gets them back in `flows[name].graph`. Yours survive a
+  Mermaid re-seed, and the agent's new ones merge over the top.
+- **Proposed.** The agent marks a node or arrow `status: "proposed"`; it draws green and
+  dashed. Untick *Proposed* or right-click → *Accept this proposal* and the log says so.
+  There is no side-by-side: the current state is the chart, proposals are drawn onto it.
+- **Link a box to a paragraph.** Select boxes, right-click the paragraph, *Link … to this
+  paragraph*. The box shows ¶, picking it lights the paragraph up, and a comment on either
+  side lands where it belongs. `docRefId` rides along in the graph.
+
 ## The doc
 
 Markdown, live: `**bold**`, `*italic*`, `` `code` ``, `~~strike~~`, links, `#`/`##`/`###`,
@@ -113,6 +135,11 @@ see is exactly what the agent gets.
 Don't write markdown? Highlight some words and a bar appears: bold, italic, code, strike,
 headings, bullets, quote, link. `⌘A` selects the whole document, not just the paragraph
 you're standing in. `⤢` gives the doc the entire window.
+
+A markdown pipe table renders as a grid you edit cell by cell — no pipes, no separator row
+to get wrong. Right-click a cell to add or delete rows and columns; right-click any
+paragraph for *Insert a table below*. Under the hood it is still a pipe table in `doc.md`,
+so the agent reads a mapping table as plain markdown.
 
 ## Comments
 
@@ -142,8 +169,8 @@ styling, so it looks right somewhere that has never heard of CoFlow.
 coflow.json      rev, title, updatedAt
 doc.json         { blocks: [{ id, text }] }
 doc.md           same doc, flat markdown
-flow.json        { dir, nodes: [{id,type,label,x,y,w,h,color,stroke,sw,opacity,dash}], edges: […] }
-flow.mermaid     same graph, Mermaid source
+flows/NAME.json  { dir, nodes: [{id,type,label,x,y,w,h,color,stroke,sw,opacity,dash,props,status,docRefId}], edges: […] }
+flows/NAME.mermaid  same graph, Mermaid source (a legacy top-level flow.json still opens, as `main`)
 comments.json    [{ id, target, body, status }]
 versions/N.json  state as it was *before* rev N, plus `ops`: what that write did
 handoff.md/json  written when you decide — including the verdict, so the folder itself

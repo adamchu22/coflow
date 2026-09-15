@@ -3,8 +3,8 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { Store, newId, describeTarget, isUnresolved } from "../lib/store.js";
-import { toMermaid, parseMermaid, mergePositions, lint, layout } from "../lib/graph.js";
+import { Store, newId, describeTarget, isUnresolved, flowName } from "../lib/store.js";
+import { toMermaid, mergePositions, lint, layout } from "../lib/graph.js";
 
 const EDITOR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "editor");
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css" };
@@ -24,7 +24,8 @@ const body = (req) =>
     req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(e); } });
   });
 
-export function startSession({ dir, title, docText = "", mermaid = "" }) {
+// `flows` is { name: graph } — already parsed, so a bad chart died in the CLI before this.
+export function startSession({ dir, title, docText = "", flows = {} }) {
   const store = new Store(dir);
   if (title && store.meta.title === "Untitled") store.meta.title = title;
 
@@ -34,24 +35,39 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
     const blocks = docText.trim().split(/\n{2,}/).map((text, i) => ({ id: `b${i}`, text: text.trim() }));
     store.save({ doc: { blocks }, by: "agent", note: "agent plan" });
   }
-  if (mermaid.trim()) {
-    store.save({ graph: layout(mergePositions(store.graph, parseMermaid(mermaid))), by: "agent", note: "agent flowchart" });
+  if (Object.keys(flows).length) {
+    const next = { ...store.flows };
+    for (const [name, g] of Object.entries(flows)) next[flowName(name)] = layout(mergePositions(store.flows[flowName(name)], g));
+    store.save({ flows: next, by: "agent", note: "agent flowchart" });
   }
   let decide;
   const decided = new Promise((r) => { decide = r; });
 
+  // Nobody watching, nobody waiting: the tab pings every 10s and beacons on close. Two
+  // minutes for the browser to show up at all, thirty seconds of silence after that, and
+  // the session dismisses itself — a closed tab must not leave a server behind.
+  let seen = Date.now(), opened = false;
+  const dismiss = () => decide({ decision: "dismissed", feedback: "", version: store.meta.rev, dir: store.dir, comments: [], humanOps: [], doc: "", mermaid: toMermaid(store.graph), flows: flowsOut() });
+  const idle = setInterval(() => { if (Date.now() - seen > (opened ? 30000 : 120000)) dismiss(); }, 5000);
+  decided.then(() => clearInterval(idle));
+
+  const lintAll = () => Object.fromEntries(Object.entries(store.flows).map(([n, g]) => [n, lint(g)]));
+  const flowsOut = () => Object.fromEntries(Object.entries(store.flows).map(([n, g]) => [n, { mermaid: toMermaid(g), graph: g }]));
+
   const routes = {
+    "POST /api/ping": () => { seen = Date.now(); opened = true; return { ok: true }; },
+    "POST /api/bye": () => { seen = Date.now() - 25000; return { ok: true }; },
+
     "GET /api/project": () => ({
       ...store.state(),
       dir: store.dir,
-      mermaid: toMermaid(store.graph),
-      lint: lint(store.graph),
+      lint: lintAll(),
       versions: store.versions(),
     }),
 
     "POST /api/save": (b) => {
-      store.save({ doc: b.doc, graph: b.graph, title: b.title, by: "human", note: b.note || "edit" });
-      return { rev: store.meta.rev, lint: lint(store.graph), graph: store.graph, versions: store.versions() };
+      store.save({ doc: b.doc, graph: b.graph, flows: b.flows, title: b.title, by: "human", note: b.note || "edit" });
+      return { rev: store.meta.rev, lint: lintAll(), flows: store.flows, versions: store.versions() };
     },
 
     "POST /api/comment": (b) => {
@@ -76,7 +92,7 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
 
     "POST /api/undo": (b) => {
       store.undo(b.rev);
-      return { ...store.state(), mermaid: toMermaid(store.graph), versions: store.versions() };
+      return { ...store.state(), lint: lintAll(), versions: store.versions() };
     },
 
     "POST /api/handoff": () => ({ ...store.handoff(), dir: store.dir }),
@@ -97,6 +113,7 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
         humanOps: store.humanEdits({ limit: 60 }),
         doc: store.doc.blocks.map((x) => x.text).join("\n\n"),
         mermaid: toMermaid(store.graph),
+        flows: flowsOut(),
       };
       store.record(b.decision);
       setTimeout(() => decide(decision), 100);
@@ -112,8 +129,9 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
 
       if (key === "GET /api/export") {
         const fmt = url.searchParams.get("fmt") || "mermaid";
+        const g = store.flows[url.searchParams.get("flow")] ?? store.graph;
         res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
-        return res.end(fmt === "md" ? store.doc.blocks.map((b) => b.text).join("\n\n") : toMermaid(store.graph));
+        return res.end(fmt === "md" ? store.doc.blocks.map((b) => b.text).join("\n\n") : toMermaid(g));
       }
 
       const file = url.pathname === "/" ? "index.html" : path.basename(url.pathname);
@@ -140,7 +158,7 @@ export function startSession({ dir, title, docText = "", mermaid = "" }) {
           server.close();
           return d;
         },
-        dismiss: () => decide({ decision: "dismissed", feedback: "", version: store.meta.rev, dir: store.dir, comments: [], humanOps: [], doc: "", mermaid: toMermaid(store.graph) }),
+        dismiss,
       });
     });
   });

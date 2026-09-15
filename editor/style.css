@@ -162,3 +162,33 @@ mark{background:#fef08a;border-radius:3px;padding:0 1px}
 .pill.resolved{background:#dcfce7;color:#166534}
 .c .acts{display:flex;gap:5px;margin-top:6px}
 .empty{color:var(--muted);font-size:12.5px;text-align:center;padding:18px 8px}
+
+/* ---- flows: one tab per process ---- */
+#flowtabs{display:flex;gap:4px;align-items:center;margin-left:18px}
+#flowtabs .muted{font-size:11px;padding:0 4px 0 6px}
+#flowtabs select{font:13px system-ui;padding:3px 6px;border:1px solid var(--line);border-radius:7px;background:#fff;max-width:220px}
+#flowtabs button{padding:3px 8px;font-size:13px;border-color:transparent}
+
+/* ---- proposed: the agent's suggestion until you accept it ---- */
+.node.proposed .n-box{stroke:var(--green);stroke-dasharray:7 5;fill:#f0fdf4}
+.node.proposed text{fill:#166534}
+.edge.proposed path{stroke:var(--green);stroke-dasharray:7 5;marker-end:url(#arrow-green)}
+.edge.proposed .hit{stroke:transparent}
+/* the box and the paragraph that describe the same step light up together */
+.node.linked .n-box{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent) 60%,transparent))}
+.node .tag{font:10px system-ui;fill:var(--muted);pointer-events:none}
+.block.linked{background:#eef4ff;border-left-color:color-mix(in srgb,var(--accent) 50%,transparent)}
+
+/* ---- props: key / value rows in the inspector ---- */
+#inspector .props{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:6px}
+#inspector .props:not(:empty){border-top:1px solid var(--line);padding-top:6px}
+#inspector .props input{font-size:11px;padding:2px 5px;border-radius:4px}
+#inspector .props input.k{color:var(--muted)}
+#inspector #i-unlink{width:100%;margin-top:4px}
+
+/* ---- tables: cells you type in, pipes you never see ---- */
+.block.table{padding:2px 0;overflow-x:auto}
+.block.table table{border-collapse:collapse;font-size:12.5px;min-width:100%}
+.block.table td{border:1px solid var(--line);padding:3px 7px;min-width:60px;outline:none;vertical-align:top;white-space:pre-wrap}
+.block.table tr:first-child td{font-weight:600;background:#f7f7f5}
+.block.table td:focus{outline:2px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:-2px}

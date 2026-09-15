@@ -110,7 +110,7 @@ test("every save snapshots the prior state and records the change", () => {
   s.save({ doc: { blocks: [{ id: "b0", text: "# Two" }] } });
 
   assert.match(fs.readFileSync(path.join(dir, "doc.md"), "utf8"), /# Two/);
-  assert.match(fs.readFileSync(path.join(dir, "flow.mermaid"), "utf8"), /flowchart TD/);
+  assert.match(fs.readFileSync(path.join(dir, "flows", "main.mermaid"), "utf8"), /flowchart TD/);
   // Reverting is a step back, not an edit: rev goes down and the snapshot is dropped, so
   // pressing it twice goes two steps back instead of bouncing between the last two states.
   s.undo(s.meta.rev);
@@ -161,4 +161,70 @@ test("the folder remembers the verdict, and stops claiming final once edited aga
   s.save({ doc: { blocks: [{ id: "b0", text: "# Plan, actually no" }] } });
   assert.match(s.handoff().md, /edited 1 more time\(s\) — no longer final/);
   fs.rmSync(dir, { recursive: true });
+});
+
+/* ── flows / props / proposed / doc links / tables ── */
+import { fromJSON } from "../lib/graph.js";
+import { parseTable, toTable, isTable } from "../editor/table.js";
+
+test("props, status and docRefId survive a Mermaid re-seed", () => {
+  const prev = layout(parseMermaid(SRC));
+  prev.nodes[0].props = { actor: "dispatcher", sla: "2h" };
+  prev.nodes[0].status = "proposed";
+  prev.nodes[0].docRefId = "b3";
+  const next = mergePositions(prev, parseMermaid(SRC.replace("Start", "Begin")));
+  const n = next.nodes.find((x) => x.id === "n0");
+  assert.equal(n.label, "Begin");
+  assert.deepEqual(n.props, { actor: "dispatcher", sla: "2h" });
+  assert.equal(n.status, "proposed");
+  assert.equal(n.docRefId, "b3");
+});
+
+test("a JSON graph seed carries props and merges over the human's", () => {
+  const g = fromJSON({ dir: "LR", nodes: [{ id: "a", label: "Scan badge", props: { source: "badge" } }, { id: "b", type: "diamond", label: "Deal?" }], edges: [{ from: "a", to: "b" }] });
+  assert.equal(g.nodes[0].props.source, "badge");
+  assert.equal(g.nodes[1].type, "diamond");
+  assert.throws(() => fromJSON({ nodes: [{ id: "a", label: "A" }], edges: [{ from: "a", to: "zzz" }] }));
+  const human = { nodes: [{ id: "a", label: "Scan badge", x: 10, y: 20, props: { crm: "contact.badge_id" } }], edges: [] };
+  const merged = mergePositions(human, fromJSON({ nodes: [{ id: "a", label: "Scan badge", props: { source: "badge" } }], edges: [] }));
+  assert.deepEqual(merged.nodes[0].props, { crm: "contact.badge_id", source: "badge" });
+  assert.equal(merged.nodes[0].x, 10);
+});
+
+test("summarize reports accepted proposals, prop changes and doc links", () => {
+  const a = { doc: { blocks: [] }, graph: { nodes: [{ id: "n1", label: "Ship", status: "proposed" }], edges: [] } };
+  const b = { doc: { blocks: [] }, graph: { nodes: [{ id: "n1", label: "Ship", props: { actor: "ops" }, docRefId: "b0" }], edges: [] } };
+  const ops = summarize(a, b).join("\n");
+  assert.match(ops, /accepted/);
+  assert.match(ops, /props of "Ship"/);
+  assert.match(ops, /linked/);
+});
+
+test("a project holds several flows and migrates a legacy flow.json", () => {
+  const dir = tmp();
+  const s = new Store(dir);
+  s.save({ flows: { main: parseMermaid(SRC), Dispatch: parseMermaid("flowchart LR\n  a[A] --> b[B]") }, by: "agent" });
+  assert.ok(fs.existsSync(path.join(dir, "flows", "main.json")));
+  assert.ok(fs.existsSync(path.join(dir, "flows", "dispatch.mermaid")));
+  const again = new Store(dir);
+  assert.deepEqual(Object.keys(again.flows).sort(), ["dispatch", "main"]);
+  assert.equal(again.flows.dispatch.nodes.length, 2);
+  assert.match(again.handoff().md, /## Flow: dispatch/);
+  // A folder from before flows/ existed still opens, as the main flow.
+  const old = tmp();
+  fs.writeFileSync(path.join(old, "flow.json"), JSON.stringify(parseMermaid(SRC)));
+  const legacy = new Store(old);
+  assert.equal(legacy.flows.main.nodes.length, 4);
+  legacy.save({ graph: legacy.graph, by: "human" });
+  assert.ok(!fs.existsSync(path.join(old, "flow.json")));
+  assert.ok(fs.existsSync(path.join(old, "flows", "main.json")));
+});
+
+test("markdown tables round-trip through the grid", () => {
+  const md = "| Field | Maps to |\n| --- | --- |\n| Badge | contact.badge_id |\n| Note \\| raw | deal.notes |";
+  assert.ok(isTable(md));
+  const rows = parseTable(md);
+  assert.deepEqual(rows, [["Field", "Maps to"], ["Badge", "contact.badge_id"], ["Note | raw", "deal.notes"]]);
+  assert.deepEqual(parseTable(toTable(rows)), rows);
+  assert.ok(!isTable("| not\nreally"));
 });

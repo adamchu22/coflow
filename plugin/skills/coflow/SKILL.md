@@ -14,6 +14,25 @@ by hand, and you get their edits back. Nothing here talks to a model — you are
 coflow plan.md --flow flow.mmd --json --gate --save-dir ./coflow
 ```
 
+More than one process? `--flow dispatch=dispatch.mmd` adds a flow called *dispatch*. Need
+props on the boxes — actor, system, CRM property — or a proposed change drawn in green?
+Seed that flow as JSON instead of Mermaid:
+
+```bash
+coflow plan.md --flow main.mmd --flow sync=sync.json --json --gate
+```
+
+```json
+{ "dir": "LR",
+  "nodes": [{ "id": "a", "label": "Extract fields", "props": { "system": "app" } },
+            { "id": "b", "label": "Push to CRM", "props": { "system": "hubspot" }, "status": "proposed", "docRefId": "b2" }],
+  "edges": [{ "from": "a", "to": "b", "status": "proposed" }] }
+```
+
+`status: "proposed"` is your suggestion until the human accepts it. `docRefId` ties a box to
+a doc paragraph (`b2` is the third paragraph, counted from `b0`). Mapping tables — field →
+CRM property → rule — go in the plan as markdown pipe tables; the human edits them as a grid.
+
 **It blocks.** The browser opens and the command sits there — for minutes, maybe an hour —
 until the human decides. That is the point. Do not background it, do not poll it, do not
 set a short timeout, and do not start other work while it runs. Wait.
@@ -58,6 +77,7 @@ flowchart TD
   "humanOps": ["relabelled edge q__c to \"after 30 days\"", "removed node \"Reject\" (c)"],
   "doc": "# Vendor onboarding…",
   "mermaid": "flowchart TD…",
+  "flows": { "main": { "mermaid": "…", "graph": { "nodes": [{ "id": "a", "label": "…", "props": { "actor": "rep" } }], "edges": [] } } },
   "version": 7,
   "dir": "/abs/path/to/coflow"
 }
@@ -71,17 +91,23 @@ Then:
   then **run `coflow` again against the same `--save-dir`** so they can see the revision.
   That is the loop: annotate → revise → reopen, until they approve. Only the human closes a
   comment, so never mark one resolved yourself.
-- **`dismissed`** — stop and ask what they want instead.
+- **`dismissed`** — stop and ask what they want instead. This is also what you get when
+  they close the tab: the server lives only while a tab is on it and shuts itself down
+  about 30 seconds after the last one goes (two minutes if none ever opened). No hook or
+  cleanup step is needed, and nothing is left listening.
 
 **`humanOps` is the list of edits they made by hand.** Read it before you touch the chart
 again: re-adding a node they just deleted is the fastest way to lose their trust. The same
 goes for layout — their positions, box sizes, styling and arrow attachment points are theirs and
 survive you sending a new chart, so send semantics and leave the geometry alone.
+Their props survive too, and yours merge over them. `humanOps` also tells you when they
+accepted a proposal, changed a prop, or linked a box to a paragraph; `flows[name].graph`
+is where you read the current props and links back.
 
 ## The folder
 
 `--save-dir` defaults to `./coflow` in the current directory, and it persists after the
-session: `doc.md`, `flow.mermaid`, `comments.json`, `handoff.md`, and a `versions/`
+session: `doc.md`, `flows/NAME.mermaid` + `.json`, `comments.json`, `handoff.md`, and a `versions/`
 snapshot per edit. Commit it if the document belongs with the code; `versions/` is undo
 history and can be ignored.
 

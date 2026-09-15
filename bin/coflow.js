@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { startSession } from "../server/index.js";
 import { Store } from "../lib/store.js";
+import { parseMermaid, fromJSON } from "../lib/graph.js";
 
 const HELP = `coflow — hand a plan + flowchart to a human, get their edits back
 
@@ -14,7 +15,8 @@ const HELP = `coflow — hand a plan + flowchart to a human, get their edits bac
   coflow attach <DIR>                 print the handoff for a project you saved earlier
 
 Options
-  --flow FILE.mmd     seed the canvas from a Mermaid flowchart
+  --flow FILE         seed the main flow: FILE.mmd is Mermaid, FILE.json is a graph
+                      with props / status / docRefId. Repeat with NAME=FILE for more flows.
   --save-dir DIR      project folder (default ./coflow)
   --json              print the decision as JSON instead of prose
   --gate              exit codes: 0 approved, 1 changes requested/dismissed, 2 bad invocation
@@ -52,16 +54,25 @@ if (positional[0] === "attach") {
 const arg = positional.join(" ");
 const isFile = arg && arg !== "-" && fs.existsSync(arg) && fs.statSync(arg).isFile();
 const docText = arg === "-" ? fs.readFileSync(0, "utf8") : isFile ? read(arg) : "";
-const mermaid = opt("flow") ? read(opt("flow")) : "";
+// `--flow quote.mmd` is the main flow; `--flow dispatch=dispatch.json` is another one.
+// Parsed here so an off-profile chart is a usage error, not a half-written project.
+const flows = {};
+for (const spec of argv.flatMap((a, i) => (a === "--flow" ? [argv[i + 1]] : []))) {
+  const m = spec?.match(/^([^=]+)=(.+)$/);
+  const [name, file] = m ? [m[1], m[2]] : ["main", spec || ""];
+  const text = read(file);
+  try { flows[name] = file.endsWith(".json") ? fromJSON(JSON.parse(text)) : parseMermaid(text); }
+  catch (e) { die(`${file}: ${e.message}`); }
+}
 // Title: the plan's first heading, else the filename, else whatever was typed.
 const title = (docText.match(/^#\s+(.+)/m)?.[1] || (isFile ? path.basename(arg, ".md") : arg) || "Untitled").slice(0, 80);
 
-const session = await startSession({ dir: opt("save-dir", "./coflow"), title, docText, mermaid });
+const session = await startSession({ dir: opt("save-dir", "./coflow"), title, docText, flows });
 
 console.error(`CoFlow → ${session.url}  (project: ${session.store.dir})`);
 if (!flag("no-open")) execFile("open", [session.url], () => {});
 
-process.on("SIGINT", () => session.dismiss());
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(sig, () => session.dismiss());
 
 const decision = await session.wait();
 
@@ -80,7 +91,7 @@ if (flag("json")) {
       decision.comments.length && "Their comments:",
       ...decision.comments.map((c) => `- ${c.target}: ${c.body}`),
       decision.humanOps.length && `They also edited it themselves: ${decision.humanOps.join("; ")}`,
-      `\nCurrent flowchart:\n\n\`\`\`mermaid\n${decision.mermaid}\n\`\`\``,
+      ...Object.entries(decision.flows).map(([n, f]) => `\nCurrent flowchart${n === "main" ? "" : ` "${n}"`}:\n\n\`\`\`mermaid\n${f.mermaid}\n\`\`\``),
     ].filter(Boolean).join("\n")
   );
 }
