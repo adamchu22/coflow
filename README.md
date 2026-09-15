@@ -224,6 +224,22 @@ plugin/
 package.json → "pi": {…}         Pi package manifest
 ```
 
+### No install
+
+Paste this at any agent that can run a shell — Claude Code, Codex, Pi, anything:
+
+```
+Run `npx -y github:adamchu22/coflow skill` and follow the instructions it prints.
+```
+
+npx fetches the repo, prints the skill, and the agent takes it from there. Nothing is
+installed, nothing is added to the host, and every `coflow …` line in the skill works as
+`npx -y github:adamchu22/coflow …`.
+
+### Installed
+
+If you'd rather have the skill loaded every session and a `/coflow` command:
+
 ```bash
 # Claude Code
 /plugin marketplace add adamchu22/coflow

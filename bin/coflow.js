@@ -13,6 +13,7 @@ const HELP = `coflow — hand a plan + flowchart to a human, get their edits bac
   coflow - --flow flow.mmd            read the plan from stdin
   coflow "Vendor onboarding"          open an empty project with that title
   coflow attach <DIR>                 print the handoff for a project you saved earlier
+  coflow skill                        print the agent instructions for driving coflow
 
 Options
   --flow FILE         seed the main flow: FILE.mmd is Mermaid, FILE.json is a graph
@@ -43,6 +44,12 @@ const read = (f) => {
 };
 
 if (!argv.length || flag("help") || argv[0] === "-h") { console.log(HELP); process.exit(0); }
+
+// The zero-install entry point: an agent in any repo runs this and follows what it prints.
+if (positional[0] === "skill") {
+  console.log(fs.readFileSync(new URL("../plugin/skills/coflow/SKILL.md", import.meta.url), "utf8"));
+  process.exit(0);
+}
 
 if (positional[0] === "attach") {
   const dir = positional[1] || die("coflow attach <dir>");
