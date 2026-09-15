@@ -423,7 +423,9 @@ $("#doc").addEventListener("contextmenu", (ev) => {
     at && ["Add a column after", () => focusCell(editTable(d, (r) => r.map((row) => (row.splice(at.c + 1, 0, ""), row))), at.r, at.c + 1)],
     at && at.r > 0 && ["Delete this row", () => editTable(d, (r) => (r.splice(at.r, 1), r))],
     at && d.querySelector("tr").cells.length > 1 && ["Delete this column", () => editTable(d, (r) => r.map((row) => (row.splice(at.c, 1), row)))],
-    !at && ["Insert a table below", () => insertBelow(toTable([["Field", "Maps to", "Rule"], ["", "", ""]]))],
+    at && [null],
+    at && ["Delete this table", () => { S.doc.blocks.splice(i, 1); renderDoc(); queueSave("deleted a table"); }],
+    ["Insert a table below", () => insertBelow(toTable([["Field", "Maps to", "Rule"], ["", "", ""]]))],
     [null],
     ["Expand the doc", () => $("#t-expand").click()],
   ].filter(Boolean));
